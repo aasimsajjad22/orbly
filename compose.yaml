@@ -1,0 +1,59 @@
+# compose.yaml — local development infrastructure for Orbly.
+#
+# This does NOT containerize the Symfony app itself yet. We run PHP via
+# `symfony serve` on the host for fast iteration (instant reload, no image
+# rebuild per change). The app itself gets containerized in Phase 10, once
+# we're building toward production/Kubernetes/AWS.
+
+services:
+  # PostgreSQL — the application database. Doctrine (installed in Phase 1)
+  # will connect to this.
+  postgres:
+    image: postgres:16-alpine
+    container_name: orbly_postgres
+    restart: unless-stopped        # auto-restart on crash/reboot, but not if you `docker compose stop` it manually
+    environment:
+      POSTGRES_DB: orbly            # database name
+      POSTGRES_USER: orbly          # local-dev-only creds — fine to hardcode, not real secrets
+      POSTGRES_PASSWORD: orbly
+    ports:
+      - "5433:5432"                 # host:container — lets `symfony serve` (running outside Docker) reach it at 127.0.0.1:5432
+    volumes:
+      - orbly_postgres_data:/var/lib/postgresql/data   # named volume: data survives `docker compose down`
+    healthcheck:                    # lets `docker compose ps` tell you when Postgres is actually ready, not just "started"
+      test: ["CMD-SHELL", "pg_isready -U orbly"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ — message broker. Symfony Messenger connects here starting in
+  # Phase 5 (friend-request notifications, feed fan-out, Stripe webhooks).
+  rabbitmq:
+    image: rabbitmq:4-management-alpine   # "-management" variant bundles a web UI, plain "rabbitmq:4-alpine" would not
+    container_name: orbly_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: orbly
+      RABBITMQ_DEFAULT_PASS: orbly
+    ports:
+      - "5672:5672"    # AMQP protocol port — what Messenger actually connects to
+      - "15672:15672"  # management UI — http://localhost:15672 in your browser
+    volumes:
+      - orbly_rabbitmq_data:/var/lib/rabbitmq
+
+  # Mailpit — catches every outgoing email locally instead of sending it for
+  # real, with a web UI to inspect them. Used from Phase 7 onward.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: orbly_mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP port — Symfony Mailer sends here
+      - "8025:8025"  # web UI — http://localhost:8025 to see caught emails
+
+# Named volumes so Postgres/RabbitMQ data survives `docker compose down`.
+# (Running `docker compose down -v` DOES wipe them — that's the escape hatch
+# for "start totally fresh".)
+volumes:
+  orbly_postgres_data:
+  orbly_rabbitmq_data:

@@ -155,7 +155,7 @@ class GoogleSignInTest extends WebTestCase
 
     public function testTheLinkedUserCanStillLogInWithTheirPassword(): void
     {
-        UserFactory::createOne([
+        UserFactory::new()->verified()->createOne([
             'email' => 'both@orbly.test',
             'password' => 'secret1234',
         ]);

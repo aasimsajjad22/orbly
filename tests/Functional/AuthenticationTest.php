@@ -129,7 +129,7 @@ class AuthenticationTest extends WebTestCase
 
     public function testItReturnsAJwtForValidCredentials(): void
     {
-        UserFactory::createOne([
+        UserFactory::new()->verified()->create([
             'email' => 'login@orbly.test',
             'password' => 'secret1234',   // the factory hashes this for us
         ]);
@@ -150,7 +150,7 @@ class AuthenticationTest extends WebTestCase
 
     public function testItRejectsAWrongPassword(): void
     {
-        UserFactory::createOne([
+        UserFactory::new()->verified()->createOne([
             'email' => 'login@orbly.test',
             'password' => 'secret1234',
         ]);
@@ -200,7 +200,7 @@ class AuthenticationTest extends WebTestCase
 
     public function testMeReturnsTheAuthenticatedUser(): void
     {
-        UserFactory::createOne([
+        UserFactory::new()->verified()->create([
             'email' => 'me@orbly.test',
             'displayName' => 'Me Myself',
             'password' => 'secret1234',
@@ -225,10 +225,8 @@ class AuthenticationTest extends WebTestCase
         self::assertArrayNotHasKey('password', $data);
     }
 
-    public function testARegisteredUserCanImmediatelyLogIn(): void
+    public function testARegisteredUserCannotLogInUntilVerified(): void
     {
-        // The end-to-end proof that hashPassword() at registration and
-        // verify() at login agree on the hash format.
         $this->postJson('/api/register', [
             'email' => 'roundtrip@orbly.test',
             'password' => 'secret1234',
@@ -236,8 +234,34 @@ class AuthenticationTest extends WebTestCase
         ]);
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
 
-        $token = $this->loginAndGetToken('roundtrip@orbly.test', 'secret1234');
-        self::assertNotEmpty($token);
+        // The hard gate: registration worked, login is blocked until the
+        // confirmation link is clicked.
+        $this->postJson('/api/login', [
+            'email' => 'roundtrip@orbly.test',
+            'password' => 'secret1234',
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+        self::assertArrayNotHasKey('token', $this->json());
+    }
+
+    public function testAnUnverifiedUserCannotLogIn(): void
+    {
+        // Default from the factory is now unverified — a real registration.
+        UserFactory::createOne([
+            'email' => 'unverified@orbly.test',
+            'password' => 'secret1234',
+        ]);
+
+        $this->postJson('/api/login', [
+            'email' => 'unverified@orbly.test',
+            'password' => 'secret1234',
+        ]);
+
+        // Correct password, but the UserChecker throws before a token is
+        // issued. This is the hard gate you chose.
+        self::assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+        self::assertArrayNotHasKey('token', $this->json());
     }
 
     // ---------------------------------------------------------------
@@ -266,6 +290,22 @@ class AuthenticationTest extends WebTestCase
     {
         $this->postJson('/api/login', ['email' => $email, 'password' => $password]);
 
-        return json_decode($this->client->getResponse()->getContent(), true)['token'];
+        $data = $this->json();
+
+        // Without this, a failed login surfaces as a confusing TypeError on
+        // the return type instead of telling you login itself failed.
+        self::assertArrayHasKey(
+            'token',
+            $data,
+            'Login failed: '.$this->client->getResponse()->getContent()
+        );
+
+        return $data['token'];
+    }
+
+    /** @return array<string, mixed> */
+    private function json(): array
+    {
+        return json_decode($this->client->getResponse()->getContent(), true) ?? [];
     }
 }

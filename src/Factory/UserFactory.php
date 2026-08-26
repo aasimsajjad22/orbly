@@ -29,6 +29,10 @@ final class UserFactory extends PersistentObjectFactory
             'displayName' => self::faker()->name(),
             'bio' => self::faker()->optional(0.6)->sentence(12),
             'password' => 'password',   // plain here; hashed in initialize() below
+            // Default to UNVERIFIED, matching a real registration. Tests that
+            // need to log in must now say ->verified() explicitly, which
+            // makes the requirement visible in the test rather than implied.
+            'emailVerified' => false,
         ];
     }
 

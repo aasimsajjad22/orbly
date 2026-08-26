@@ -11,9 +11,9 @@ class AppFixtures extends Fixture
     public function load(ObjectManager $manager): void
     {
         // createOne() now returns a real User object, not a proxy.
-        UserFactory::createOne([
-            'email' => 'admin@orbly.test',
-            'displayName' => 'Orbly Admin',
+        UserFactory::new()->verified()->create([
+            'email' => 'x@orbly.test',
+            'password' => 'secret1234',
         ]);
 
         // new() builds an unsaved factory instance so we can chain states,

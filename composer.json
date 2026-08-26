@@ -19,13 +19,19 @@
         "symfony/flex": "^2",
         "symfony/framework-bundle": "8.1.*",
         "symfony/http-client": "8.1.*",
+        "symfony/mailer": "8.1.*",
+        "symfony/monolog-bundle": "^4.0",
         "symfony/property-access": "8.1.*",
         "symfony/property-info": "8.1.*",
         "symfony/runtime": "8.1.*",
         "symfony/security-bundle": "8.1.*",
         "symfony/serializer": "8.1.*",
+        "symfony/twig-bundle": "8.1.*",
         "symfony/validator": "8.1.*",
-        "symfony/yaml": "8.1.*"
+        "symfony/yaml": "8.1.*",
+        "symfonycasts/verify-email-bundle": "^1.18",
+        "twig/extra-bundle": "^2.12|^3.0",
+        "twig/twig": "^2.12|^3.0"
     },
     "config": {
         "allow-plugins": {
@@ -86,6 +92,8 @@
         "symfony/browser-kit": "8.1.*",
         "symfony/css-selector": "8.1.*",
         "symfony/maker-bundle": "^1.67",
+        "symfony/stopwatch": "8.1.*",
+        "symfony/web-profiler-bundle": "8.1.*",
         "zenstruck/foundry": "^2.12"
     }
 }

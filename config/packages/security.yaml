@@ -24,6 +24,9 @@ security:
         login:
             pattern: ^/api/login
             stateless: true          # no session, no cookie
+            # Symfony calls this class after the password check. Without this
+            # line the checker exists but is never invoked.
+            user_checker: App\Security\UserChecker
             json_login:
                 check_path: /api/login          # POST here with JSON body
                 username_path: email            # which JSON key holds the identifier

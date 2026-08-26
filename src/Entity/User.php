@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
@@ -72,6 +74,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(options: ['default' => false])]
     private bool $emailVerified = false;
 
+    /**
+     * Requests this user SENT.
+     *
+     * OneToMany is the INVERSE side — it holds no column. mappedBy names the
+     * property on FriendRequest that owns the relation ('sender').
+     *
+     * Collection, not array: Doctrine returns a lazy PersistentCollection
+     * that only queries the database when you actually iterate it.
+     *
+     * @var Collection<int, FriendRequest>
+     */
+    #[ORM\OneToMany(targetEntity: FriendRequest::class, mappedBy: 'sender')]
+    private Collection $sentFriendRequests;
+
+    /**
+     * Requests this user RECEIVED. Mirrors the 'recipient' property.
+     *
+     * @var Collection<int, FriendRequest>
+     */
+    #[ORM\OneToMany(targetEntity: FriendRequest::class, mappedBy: 'recipient')]
+    private Collection $receivedFriendRequests;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -81,6 +105,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
+        // Collections MUST be initialised here. Forget this and you get
+        // "call to a member function on null" the first time you touch
+        // them on a newly created (not yet loaded) entity.
+        $this->sentFriendRequests = new ArrayCollection();
+        $this->receivedFriendRequests = new ArrayCollection();
     }
 
     #[ORM\PreUpdate]
@@ -122,6 +151,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $roles[] = 'ROLE_USER'; // everyone is at least a normal user
 
         return array_values(array_unique($roles));
+    }
+
+    /** @return Collection<int, FriendRequest> */
+    public function getSentFriendRequests(): Collection
+    {
+        return $this->sentFriendRequests;
+    }
+
+    /** @return Collection<int, FriendRequest> */
+    public function getReceivedFriendRequests(): Collection
+    {
+        return $this->receivedFriendRequests;
     }
 
     /** @param list<string> $roles */

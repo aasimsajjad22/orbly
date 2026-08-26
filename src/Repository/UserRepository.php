@@ -51,6 +51,17 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     }
 
     /**
+     * Find a user by their Google account ID.
+     *
+     * findOneBy() is inherited from ServiceEntityRepository — no query
+     * builder needed for a simple equality lookup.
+     */
+    public function findOneByGoogleId(string $googleId): ?User
+    {
+        return $this->findOneBy(['googleId' => $googleId]);
+    }
+
+    /**
      * Called automatically by Symfony when a user logs in and their password
      * hash is out of date (e.g. you raised the bcrypt cost). Symfony re-hashes
      * and hands us the new hash to store. Laravel has no direct equivalent.

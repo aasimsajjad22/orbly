@@ -1,0 +1,4 @@
+# Loaded only in the test environment, AFTER services.yaml, so this alias
+# overrides the one above. One line, and every test gets the fake.
+services:
+    App\Security\Google\GoogleIdTokenVerifier: '@App\Security\Google\FakeGoogleIdTokenVerifier'

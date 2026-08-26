@@ -49,6 +49,7 @@ security:
     access_control:
         - { path: ^/api/login,    roles: PUBLIC_ACCESS }
         - { path: ^/api/register, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/google, roles: PUBLIC_ACCESS }   # ← new
         - { path: ^/api,          roles: IS_AUTHENTICATED_FULLY }
 
 # Speed up the test suite: bcrypt cost 4 instead of the default 13.

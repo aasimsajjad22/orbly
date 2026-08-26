@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Dto\RegisterRequest;
 use App\Entity\User;
 use App\Repository\UserRepository;
+use App\Security\EmailVerifier;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -23,6 +24,7 @@ final class RegistrationController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly UserRepository $user,
         private readonly UserPasswordHasherInterface $hasher,
+        private readonly EmailVerifier $emailVerifier,   // ← new
     ){
     }
 
@@ -42,6 +44,10 @@ final class RegistrationController extends AbstractController
         $user->setPassword($this->hasher->hashPassword($user, $payload->password));
         $this->em->persist($user);
         $this->em->flush();
+
+        // Must come AFTER flush() — the signed URL needs the user's id,
+        // which only exists once the INSERT has run.
+        $this->emailVerifier->sendVerificationEmail($user);
 
         return new JsonResponse([
             'id'          => $user->getId(),

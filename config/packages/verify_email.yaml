@@ -1,0 +1,5 @@
+symfonycasts_verify_email:
+    # How long a link stays valid, in seconds. One hour is the usual
+    # trade-off: long enough for someone to check email later, short
+    # enough that a leaked link goes stale.
+    lifetime: 3600

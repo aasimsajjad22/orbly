@@ -1,0 +1,14 @@
+framework:
+    rate_limiter:
+        # Per email address: stops one victim being bombed no matter how
+        # many IPs the attacker uses.
+        verification_email:
+            policy: 'token_bucket'   # allows a burst, then refills slowly
+            limit: 3                 # bucket holds 3 tokens
+            rate: { interval: '5 minutes', amount: 1 }   # +1 token per 15 min
+
+        # Per IP: stops one attacker enumerating many addresses.
+        verification_email_ip:
+            policy: 'sliding_window'
+            limit: 10
+            interval: '1 hour'

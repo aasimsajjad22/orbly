@@ -31,7 +31,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private array $roles = [];
 
-    #[ORM\Column]
+    /**
+     * The hashed password.
+     *
+     * NULL means this account has no password at all — it was created via
+     * Google and can only sign in that way. Anything reading this must
+     * handle null; see getPassword() below and the login guard.
+     */
+    #[ORM\Column(nullable: true)]
     private ?string $password = null;
 
     #[ORM\Column(length: 50)]
@@ -42,6 +49,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     #[Assert\Length(max: 500)]
     private ?string $bio = null;
+
+    /**
+     * Google's "sub" claim — a permanent, unique ID for this Google account.
+     *
+     * We link on THIS, never on email. Emails can change hands; a Google
+     * "sub" never changes and is never reassigned.
+     *
+     * Unique so two Orbly accounts can't claim the same Google account.
+     * Nullable because password-only users don't have one.
+     */
+    #[ORM\Column(length: 255, nullable: true, unique: true)]
+    private ?string $googleId = null;
+
+    /**
+     * Has this email address been proven to belong to the user?
+     *
+     * Set true immediately for Google sign-ups (Google already proved it).
+     * For local sign-ups it stays false until they click the link we email
+     * them in Phase 2c. The login firewall will block false in 2c.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $emailVerified = false;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
@@ -108,7 +137,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->password;
     }
 
-    public function setPassword(string $password): static
+    public function setPassword(?string $password): static
     {
         $this->password = $password;
 
@@ -137,6 +166,41 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->bio = $bio;
 
         return $this;
+    }
+
+    public function getGoogleId(): ?string
+    {
+        return $this->googleId;
+    }
+
+    public function setGoogleId(?string $googleId): static
+    {
+        $this->googleId = $googleId;
+
+        return $this;
+    }
+
+    public function isEmailVerified(): bool
+    {
+        return $this->emailVerified;
+    }
+
+    public function setEmailVerified(bool $emailVerified): static
+    {
+        $this->emailVerified = $emailVerified;
+
+        return $this;
+    }
+
+    /**
+     * True when this account can be signed into with a password.
+     *
+     * A Google-only account returns false. Use this instead of checking
+     * getPassword() !== null at call sites — it says WHY, not just WHAT.
+     */
+    public function hasPassword(): bool
+    {
+        return $this->password !== null;
     }
 
     public function getCreatedAt(): \DateTimeImmutable

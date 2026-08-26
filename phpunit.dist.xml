@@ -40,8 +40,12 @@
     </source>
 
     <extensions>
-        <bootstrap class="Zenstruck\Foundry\PHPUnit\FoundryExtension" />
-        <!-- Wraps every test in a DB transaction that rolls back afterward — Laravel's RefreshDatabase equivalent -->
-        <bootstrap class="DAMA\DoctrineTestBundle\PHPUnit\PHPUnitExtension" />
+        <bootstrap class="Zenstruck\Foundry\PHPUnit\FoundryExtension">
+            <!-- Without this, Foundry boots but never resets the database.
+                 With it, every test extending KernelTestCase gets a clean
+                 schema — no per-class trait or attribute required. -->
+            <parameter name="enabled-auto-reset" value="true"/>
+        </bootstrap>
+<!--        <bootstrap class="DAMA\DoctrineTestBundle\PHPUnit\PHPUnitExtension"/>-->
     </extensions>
 </phpunit>

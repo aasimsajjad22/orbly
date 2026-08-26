@@ -1,43 +1,63 @@
 security:
-    # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
+    # How to hash passwords. "auto" picks the best available algorithm
+    # (currently bcrypt or argon2id) and can upgrade old hashes later.
+    # Laravel equivalent: config/hashing.php
     password_hashers:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
 
-    # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
+    # Where users come from. Doctrine loads App\Entity\User by the property
+    # we named in make:user. Laravel equivalent: the "users" provider in auth.php
     providers:
-        # used to reload user from session & other features (e.g. switch_user)
         app_user_provider:
             entity:
                 class: App\Entity\User
                 property: email
 
     firewalls:
+        # Dev toolbar/profiler assets — never authenticate these.
         dev:
-            # Ensure dev tools and static assets are always allowed
-            pattern: ^/(_profiler|_wdt|assets|build)/
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
+
+        # Firewall 1: the login endpoint only.
+        # It is separate because logging IN must not require a token.
+        login:
+            pattern: ^/api/login
+            stateless: true          # no session, no cookie
+            json_login:
+                check_path: /api/login          # POST here with JSON body
+                username_path: email            # which JSON key holds the identifier
+                password_path: password         # which JSON key holds the password
+                # These two handlers come from Lexik: on success it returns
+                # {"token": "..."}, on failure a 401 JSON error.
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure
+
+        # Firewall 2: everything else under /api, protected by JWT.
+        api:
+            pattern: ^/api
+            stateless: true
+            jwt: ~                   # enables Lexik's JWT authenticator
+
+        # Catch-all for anything outside /api (we have no web UI, so it's open).
         main:
             lazy: true
             provider: app_user_provider
 
-            # Activate different ways to authenticate:
-            # https://symfony.com/doc/current/security.html#the-firewall
-
-            # https://symfony.com/doc/current/security/impersonating_user.html
-            # switch_user: true
-
-    # Note: Only the *first* matching rule is applied
+    # URL rules, checked top to bottom — first match wins, like Laravel's
+    # route middleware but declared centrally.
     access_control:
-        # - { path: ^/admin, roles: ROLE_ADMIN }
-        # - { path: ^/profile, roles: ROLE_USER }
+        - { path: ^/api/login,    roles: PUBLIC_ACCESS }
+        - { path: ^/api/register, roles: PUBLIC_ACCESS }
+        - { path: ^/api,          roles: IS_AUTHENTICATED_FULLY }
 
+# Speed up the test suite: bcrypt cost 4 instead of the default 13.
+# Hashing is deliberately slow in production; in tests it just wastes time.
 when@test:
     security:
         password_hashers:
-            # Password hashers are resource-intensive by design to ensure security.
-            # In tests, it's safe to reduce their cost to improve performance.
             Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
                 algorithm: auto
-                cost: 4 # Lowest possible value for bcrypt
-                time_cost: 3 # Lowest possible value for argon
-                memory_cost: 10 # Lowest possible value for argon
+                cost: 4
+                time_cost: 3
+                memory_cost: 10

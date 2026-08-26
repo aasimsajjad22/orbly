@@ -20,7 +20,40 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     }
 
     /**
-     * Used to upgrade (rehash) the user's password automatically over time.
+     * Find one user by email, case-insensitively.
+     *
+     * We lowercase emails in User::setEmail(), but data can arrive from
+     * anywhere (imports, old rows), so we lowercase on both sides to be safe.
+     */
+    public function findOneByEmail(string $email): ?User
+    {
+        return $this->createQueryBuilder('u')   // 'u' is the alias, like SQL's "FROM users u"
+        ->andWhere('LOWER(u.email) = :email') // :email is a bound parameter — never string-concat user input
+        ->setParameter('email', strtolower(trim($email)))
+            ->getQuery()                         // builds the DQL query object
+            ->getOneOrNullResult();              // returns a User, or null. Throws if more than one row matches.
+    }
+
+    /**
+     * Search users by display name or email — used later by "find friends".
+     *
+     * @return User[]
+     */
+    public function search(string $term, int $limit = 20): array
+    {
+        return $this->createQueryBuilder('u')
+            ->andWhere('LOWER(u.displayName) LIKE :term OR LOWER(u.email) LIKE :term')
+            ->setParameter('term', '%'.strtolower(trim($term)).'%')
+            ->orderBy('u.displayName', 'ASC')
+            ->setMaxResults($limit)              // SQL LIMIT — same as Laravel's ->take()
+            ->getQuery()
+            ->getResult();                       // returns an array of User objects
+    }
+
+    /**
+     * Called automatically by Symfony when a user logs in and their password
+     * hash is out of date (e.g. you raised the bcrypt cost). Symfony re-hashes
+     * and hands us the new hash to store. Laravel has no direct equivalent.
      */
     public function upgradePassword(PasswordAuthenticatedUserInterface $user, string $newHashedPassword): void
     {
@@ -29,32 +62,10 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         }
 
         $user->setPassword($newHashedPassword);
-        $this->getEntityManager()->persist($user);
+
+        // getEntityManager() is inherited. persist() is not needed here because
+        // the object is already managed by Doctrine (it was loaded from the DB).
         $this->getEntityManager()->flush();
     }
 
-    //    /**
-    //     * @return User[] Returns an array of User objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('u')
-    //            ->andWhere('u.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('u.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
-
-    //    public function findOneBySomeField($value): ?User
-    //    {
-    //        return $this->createQueryBuilder('u')
-    //            ->andWhere('u.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
 }

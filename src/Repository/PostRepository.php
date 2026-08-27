@@ -132,4 +132,16 @@ class PostRepository extends ServiceEntityRepository
 
         return $qb->getQuery()->getResult();
     }
+
+    /**
+     * Re-read a post from the database, discarding the cached version.
+     *
+     * Needed after any bulk DQL UPDATE: those change rows directly and do
+     * not update objects already in Doctrine's identity map, so
+     * $post->getLikeCount() would return the pre-update value.
+     */
+    public function refresh(Post $post): void
+    {
+        $this->getEntityManager()->refresh($post);
+    }
 }

@@ -32,19 +32,18 @@ class FriendController extends AbstractController
 
         $friends = $this->friendships->findFriendsOf($me, $limit, $offset);
 
-        return new JsonResponse([
+        $users = array_map(
+            static fn ($f) => $f->getFriend(),
+            $friends
+        );
+
+        return $this->json([
             'total' => $this->friendships->countFriendsOf($me),
             'limit' => $limit,
             'offset' => $offset,
-            'items' => array_map(
-                static fn ($f) => [
-                    'id' => $f->getFriend()->getId(),
-                    'displayName' => $f->getFriend()->getDisplayName(),
-                    'bio' => $f->getFriend()->getBio(),
-                    'friendsSince' => $f->getCreatedAt()->format(\DATE_ATOM),
-                ],
-                $friends
-            ),
+            'items' => $users,
+        ], 200, [], [
+            'groups' => ['user:public'],
         ]);
     }
 

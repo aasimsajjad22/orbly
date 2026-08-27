@@ -10,7 +10,9 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Serializer\Attribute\Groups;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'users')]
@@ -22,15 +24,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    // In every context: you always need the id.
+    #[Groups(['user:public', 'user:private'])]
     private ?int $id = null;
 
     #[ORM\Column(length: 180)]
     #[Assert\NotBlank]
     #[Assert\Email]
+    #[Groups(['user:private'])]
     private ?string $email = null;
 
     /** @var list<string> */
     #[ORM\Column]
+    #[Groups(['user:private'])]
     private array $roles = [];
 
     /**
@@ -46,10 +52,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 50)]
     #[Assert\NotBlank]
     #[Assert\Length(min: 2, max: 50)]
+    #[Groups(['user:public', 'user:private'])]
     private ?string $displayName = null;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     #[Assert\Length(max: 500)]
+    #[Groups(['user:public', 'user:private'])]
     private ?string $bio = null;
 
     /**
@@ -71,6 +79,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      * For local sign-ups it stays false until they click the link we email
      * them in Phase 2c. The login firewall will block false in 2c.
      */
+    #[Groups(['user:private'])]
     #[ORM\Column(options: ['default' => false])]
     private bool $emailVerified = false;
 
@@ -85,6 +94,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @var Collection<int, FriendRequest>
      */
+    #[Ignore]
     #[ORM\OneToMany(targetEntity: FriendRequest::class, mappedBy: 'sender')]
     private Collection $sentFriendRequests;
 
@@ -93,10 +103,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      *
      * @var Collection<int, FriendRequest>
      */
+    #[Ignore]
     #[ORM\OneToMany(targetEntity: FriendRequest::class, mappedBy: 'recipient')]
     private Collection $receivedFriendRequests;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+    #[Groups(['user:public', 'user:private'])]
     private \DateTimeImmutable $createdAt;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
@@ -154,12 +166,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     }
 
     /** @return Collection<int, FriendRequest> */
+    #[Ignore]
     public function getSentFriendRequests(): Collection
     {
         return $this->sentFriendRequests;
     }
 
     /** @return Collection<int, FriendRequest> */
+    #[Ignore]
     public function getReceivedFriendRequests(): Collection
     {
         return $this->receivedFriendRequests;

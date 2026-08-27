@@ -27,20 +27,13 @@ class MeController extends AbstractController
         // anonymous requests with a 401 before reaching us.
         \assert($user instanceof User);
 
-        // We build the array by hand so we control EXACTLY what leaves the app.
-        // Never json_encode the entity directly — it would expose the password
-        // hash and the roles array. In Phase 4 we replace this with the
-        // Serializer and #[Groups] attributes, which is the scalable version
-        // (Laravel's API Resources).
-        return new JsonResponse([
-            'id'          => $user->getId(),
-            'email'       => $user->getEmail(),
-            'displayName' => $user->getDisplayName(),
-            'bio'         => $user->getBio(),
-            'roles'       => $user->getRoles(),
-            // format() turns the DateTimeImmutable into an ISO-8601 string,
-            // which is what every JSON API client expects.
-            'createdAt'   => $user->getCreatedAt()->format(\DATE_ATOM),
+        // json() is a shortcut on AbstractController: it serializes the
+        // object and wraps it in a JsonResponse.
+        //
+        // Third argument = headers. Fourth = serializer context, where the
+        // groups go. Only properties carrying one of these groups appear.
+        return $this->json($user, 200, [], [
+            'groups' => ['user:private'],
         ]);
     }
 }

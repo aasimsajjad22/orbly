@@ -7,6 +7,7 @@ use App\Repository\PostRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Serializer\Attribute\Groups;
 
 #[ORM\Entity(repositoryClass: PostRepository::class)]
 #[ORM\Table(name: 'posts')]
@@ -24,6 +25,7 @@ class Post
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
+    #[Groups(['post:list', 'post:read'])]
     private ?int $id = null;
 
     /**
@@ -33,6 +35,7 @@ class Post
      */
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    #[Groups(['post:list', 'post:read'])]
     private ?User $author = null;
 
     #[ORM\Column(type: Types::TEXT)]
@@ -42,9 +45,11 @@ class Post
         max: 2000,
         maxMessage: 'A post cannot be longer than {{ limit }} characters.',
     )]
+    #[Groups(['post:list', 'post:read'])]
     private ?string $content = null;
 
     #[ORM\Column(length: 20, enumType: PostVisibility::class)]
+    #[Groups(['post:list', 'post:read'])]
     private PostVisibility $visibility = PostVisibility::Public;
 
     /**
@@ -58,15 +63,19 @@ class Post
      * migration adds these columns to a table that may already have rows.
      */
     #[ORM\Column(options: ['default' => 0])]
+    #[Groups(['post:list', 'post:read'])]
     private int $likeCount = 0;
 
     #[ORM\Column(options: ['default' => 0])]
+    #[Groups(['post:list', 'post:read'])]
     private int $commentCount = 0;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+    #[Groups(['post:list', 'post:read'])]
     private \DateTimeImmutable $createdAt;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups(['post:list', 'post:read'])]
     private ?\DateTimeImmutable $updatedAt = null;
 
     /**
@@ -190,6 +199,7 @@ class Post
         $this->deletedAt = new \DateTimeImmutable();
     }
 
+    #[Groups(['post:list', 'post:read'])]
     public function isEdited(): bool
     {
         return $this->updatedAt !== null;

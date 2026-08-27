@@ -1,0 +1,9 @@
+framework:
+    serializer:
+        enabled: true
+        default_context:
+            skip_null_values: true
+            # Stops runaway recursion if a back-reference ever gets a group
+            # by accident. Without this, a cycle throws a
+            # CircularReferenceException — or worse, exhausts memory.
+            enable_max_depth: true

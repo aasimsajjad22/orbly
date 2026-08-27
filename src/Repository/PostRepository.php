@@ -4,9 +4,11 @@ namespace App\Repository;
 
 use App\Entity\Post;
 use App\Entity\User;
+use App\Enum\PostVisibility;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
+use App\Pagination\Cursor;
 
 /**
  * @extends ServiceEntityRepository<Post>
@@ -63,5 +65,71 @@ class PostRepository extends ServiceEntityRepository
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Posts by the user's friends, newest first, cursor-paginated.
+     *
+     * @return Post[]
+     */
+    public function findFeedFor(User $user, ?Cursor $cursor = null, int $limit = 20): array
+    {
+        $qb = $this->notDeleted()
+            // THE join the two-row friendship design exists for.
+            //
+            // Every friendship is stored twice, so "posts by my friends"
+            // is a single equality on f.user, and the author match is a
+            // single equality on f.friend. With one-row-per-friendship
+            // this join condition would need an OR, on the hottest query
+            // in the app.
+            ->innerJoin(
+                'App\Entity\Friendship',
+                'f',
+                'WITH',
+                'f.friend = p.author AND f.user = :me'
+            )
+            ->setParameter('me', $user)
+
+            // Friends-only and public posts both qualify here — the author
+            // is a friend by definition. Private posts never appear in
+            // anyone else's feed.
+            ->andWhere('p.visibility IN (:visible)')
+            ->setParameter('visible', [PostVisibility::Public, PostVisibility::Friends])
+
+            // Exclude anyone involved in a block, either direction. A
+            // subquery rather than a join, because a join would duplicate
+            // rows when multiple blocks match.
+            ->andWhere(
+                'NOT EXISTS (
+                    SELECT 1 FROM App\Entity\Block b
+                    WHERE (b.blocker = :me AND b.blocked = p.author)
+                       OR (b.blocker = p.author AND b.blocked = :me)
+                )'
+            )
+
+            // Eager-load the author: every feed item shows it, and without
+            // this each post fires its own SELECT.
+            ->leftJoin('p.author', 'a')->addSelect('a')
+
+            // Sort by the same pair the cursor uses, or the tiebreaker
+            // means nothing.
+            ->orderBy('p.createdAt', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+
+            // Ask for one extra row. If we get limit+1 back, there is at
+            // least one more page — cheaper than a separate COUNT query,
+            // which on a feed would be expensive and instantly stale.
+            ->setMaxResults($limit + 1);
+
+        if ($cursor !== null) {
+            // The composite comparison. Plain `createdAt < :ts` would skip
+            // or repeat rows that share a timestamp; adding the id makes
+            // the ordering total.
+            $qb->andWhere('(p.createdAt < :cursorDate OR (p.createdAt = :cursorDate AND p.id < :cursorId))')
+                ->setParameter('cursorDate', $cursor->createdAt)
+                ->setParameter('cursorId', $cursor->id);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 }

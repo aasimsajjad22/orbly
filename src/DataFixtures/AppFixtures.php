@@ -18,11 +18,19 @@ class AppFixtures extends Fixture
 
         // new() builds an unsaved factory instance so we can chain states,
         // then create() persists it. admin() is our state method.
-        UserFactory::new()->admin()->create([
+        UserFactory::new()->verified()->admin()->create([
             'email' => 'super@orbly.test',
             'displayName' => 'Super Admin',
         ]);
 
-        UserFactory::createMany(20);
+        // A second known account, so you can test two-sided flows like friend
+        // requests without hunting for a random seeded user's email.
+        UserFactory::new()->verified()->create([
+            'email' => 'sajjad@orbly.test',
+            'displayName' => 'Sajjad',
+        ]);
+
+        // 20 random users, all verified so they're usable in manual testing.
+        UserFactory::new()->verified()->many(20)->create();
     }
 }

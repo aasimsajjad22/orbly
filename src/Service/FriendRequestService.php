@@ -18,6 +18,7 @@ final readonly class FriendRequestService
     public function __construct(
         private FriendRequestRepository $requests,
         private EntityManagerInterface $em,
+        private FriendshipService $friendships,
     ) {
     }
 
@@ -54,6 +55,7 @@ final readonly class FriendRequestService
 
         if ($reverse !== null) {
             $reverse->accept();
+            $this->friendships->create($recipient, $sender);   // ← new
             $this->em->flush();
 
             // The bool says "this became a friendship" — the controller
@@ -82,6 +84,7 @@ final readonly class FriendRequestService
         // The entity guards its own state transitions, so a double-accept
         // throws rather than creating two friendships.
         $request->accept();
+        $this->friendships->create($request->getSender(), $request->getRecipient());
 
         $this->em->flush();
 

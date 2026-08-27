@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\FriendRequest;
 use App\Entity\User;
+use App\Repository\BlockRepository;
 use App\Repository\FriendRequestRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -19,6 +20,7 @@ final readonly class FriendRequestService
         private FriendRequestRepository $requests,
         private EntityManagerInterface $em,
         private FriendshipService $friendships,
+        private BlockRepository $blocks,
     ) {
     }
 
@@ -35,6 +37,13 @@ final readonly class FriendRequestService
         // guaranteed across different EntityManager states.
         if ($sender->getId() === $recipient->getId()) {
             throw FriendRequestException::cannotFriendYourself();
+        }
+
+        // Either direction blocks the request. Deliberately a single check
+        // rather than "did THEY block ME" — if I blocked someone, I should
+        // not be able to friend them either without unblocking first.
+        if ($this->blocks->existsBetween($sender, $recipient)) {
+            throw FriendRequestException::blocked();
         }
 
         // RULE 2: already have one open in this direction? Return it rather

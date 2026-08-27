@@ -18,4 +18,11 @@ final class FriendRequestException extends \RuntimeException
     {
         return new self('You are already friends with this user.');
     }
+
+    public static function blocked(): self
+    {
+        // Deliberately vague. Saying "they blocked you" tells the sender
+        // something the recipient probably did not want them to know.
+        return new self('You cannot send a friend request to this user.');
+    }
 }

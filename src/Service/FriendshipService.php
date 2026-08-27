@@ -20,6 +20,7 @@ final readonly class FriendshipService
      */
     public function create(User $a, User $b): void
     {
+
         if ($this->friendships->areFriends($a, $b)) {
             return;   // idempotent: calling twice is harmless
         }

@@ -4,9 +4,11 @@ namespace App\Service;
 
 use App\Entity\FriendRequest;
 use App\Entity\User;
+use App\Message\FriendRequestSent;
 use App\Repository\BlockRepository;
 use App\Repository\FriendRequestRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /**
  * All the business rules for sending a friend request.
@@ -21,6 +23,7 @@ final readonly class FriendRequestService
         private EntityManagerInterface $em,
         private FriendshipService $friendships,
         private BlockRepository $blocks,
+        private MessageBusInterface $bus,      // ← new
     ) {
     }
 
@@ -76,6 +79,14 @@ final readonly class FriendRequestService
 
         $this->em->persist($request);
         $this->em->flush();
+
+        // AFTER flush, so getId() is populated.
+        //
+        // Note we do NOT dispatch on the auto-accept path above: if they
+        // both requested each other, they are already friends and a
+        // "wants to connect" email would be nonsense.
+        $this->bus->dispatch(new FriendRequestSent($request->getId()));
+
 
         return [$request, false];
     }

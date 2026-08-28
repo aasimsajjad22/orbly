@@ -16,6 +16,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use App\Message\SendVerificationEmail;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 // Single-action "invokable" controller — same idea as __invoke controllers in Laravel.
 final class RegistrationController extends AbstractController
@@ -24,7 +26,8 @@ final class RegistrationController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly UserRepository $user,
         private readonly UserPasswordHasherInterface $hasher,
-        private readonly EmailVerifier $emailVerifier,   // ← new
+        //private readonly EmailVerifier $emailVerifier,   // ← new
+        private readonly MessageBusInterface $bus,
     ){
     }
 
@@ -47,7 +50,8 @@ final class RegistrationController extends AbstractController
 
         // Must come AFTER flush() — the signed URL needs the user's id,
         // which only exists once the INSERT has run.
-        $this->emailVerifier->sendVerificationEmail($user);
+        //$this->emailVerifier->sendVerificationEmail($user);
+        $this->bus->dispatch(new SendVerificationEmail($user->getId()));
 
         return new JsonResponse([
             'id'          => $user->getId(),

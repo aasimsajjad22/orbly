@@ -1,0 +1,47 @@
+framework:
+    messenger:
+        # What happens when a handler throws.
+        #
+        # Messages are retried with an increasing delay, then given up on.
+        # This matters because most failures are transient — SMTP hiccups,
+        # a network blip — and retrying a second later usually works.
+        failure_transport: failed
+
+        buses:
+            messenger.bus.default:
+                middleware:
+                    # Holds dispatched messages until the current Doctrine
+                    # transaction commits. If it rolls back, the messages
+                    # are discarded rather than sent.
+                    - doctrine_transaction
+
+        transports:
+            async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                retry_strategy:
+                    # Try 3 times total before giving up.
+                    max_retries: 3
+                    # Wait 1s before the first retry.
+                    delay: 1000
+                    # Then multiply the delay each time: 1s, 2s, 4s.
+                    # Exponential backoff — a struggling service gets
+                    # breathing room instead of being hammered.
+                    multiplier: 2
+                    # Never wait longer than 10s between attempts.
+                    max_delay: 10000
+
+            # Where messages go after max_retries is exhausted. They are
+            # NOT lost — they sit here so you can inspect and replay them
+            # with messenger:failed:show and messenger:failed:retry.
+            failed: 'doctrine://default?queue_name=failed'
+
+        routing:
+            # Which messages go to which transport.
+            #
+            # Anything NOT listed here is handled SYNCHRONOUSLY, in the
+            # same request. That is the default, and it is a sensible one:
+            # you opt in to async per message type.
+            App\Message\SendVerificationEmail: async
+            # Same transport for now. When Phase 6 adds Stripe webhooks
+            # we will split these into priority lanes.
+            App\Message\FriendRequestSent: async

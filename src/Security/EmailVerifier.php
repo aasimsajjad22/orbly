@@ -44,7 +44,7 @@ final readonly class EmailVerifier
         );
 
         // TemplatedEmail renders a Twig template as the body.
-        $email = (new TemplatedEmail())
+        $email = new TemplatedEmail()
             ->from(new Address('no-reply@orbly.test', 'Orbly'))
             ->to((string) $user->getEmail())
             ->subject('Confirm your Orbly account')

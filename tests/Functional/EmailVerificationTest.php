@@ -8,6 +8,9 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Zenstruck\Foundry\Attribute\ResetDatabase;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\ReceivedStamp;
+use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
 #[ResetDatabase]
 class EmailVerificationTest extends WebTestCase
@@ -32,6 +35,9 @@ class EmailVerificationTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+
+        // The email is queued, not sent — run the worker's job.
+        $this->processQueue();
 
         // Exactly one email was handed to the mailer during this request.
         self::assertEmailCount(1);
@@ -79,6 +85,8 @@ class EmailVerificationTest extends WebTestCase
         ]);
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
 
+        $this->processQueue();
+
         // Grab the link NOW. getMailerMessage() reads the profiler of the
         // LAST request, so any request in between wipes it out.
         $verificationUrl = $this->extractVerificationUrl();
@@ -106,6 +114,9 @@ class EmailVerificationTest extends WebTestCase
     public function testClickingTwiceIsHarmless(): void
     {
         $this->registerUnverified('twice@orbly.test');
+
+        $this->processQueue();
+
         $url = $this->extractVerificationUrl();
 
         $this->client->request('GET', $url);
@@ -122,6 +133,7 @@ class EmailVerificationTest extends WebTestCase
         // THE test that proves the signature is actually checked. Without
         // this, the whole scheme could be decorative and you'd never know.
         $this->registerUnverified('tamper@orbly.test');
+        $this->processQueue();
 
         $url = $this->extractVerificationUrl();
 
@@ -159,6 +171,7 @@ class EmailVerificationTest extends WebTestCase
         $this->postJson('/api/resend-verification', ['email' => 'resend@orbly.test']);
 
         self::assertResponseIsSuccessful();
+        $this->processQueue();
         self::assertEmailCount(1);
         self::assertEmailHeaderSame(self::getMailerMessage(), 'To', 'resend@orbly.test');
     }
@@ -257,5 +270,29 @@ class EmailVerificationTest extends WebTestCase
     private function users(): UserRepository
     {
         return self::getContainer()->get(UserRepository::class);
+    }
+
+    /**
+     * Run every message currently sitting in the in-memory transport.
+     *
+     * Registration now QUEUES the verification email instead of sending
+     * it, so a test that wants the email must play the worker's part
+     * first. This is what messenger:consume does, minus the polling loop.
+     */
+    private function processQueue(): void
+    {
+        /** @var InMemoryTransport $transport */
+        $transport = self::getContainer()->get('messenger.transport.async');
+        $bus = self::getContainer()->get(MessageBusInterface::class);
+
+        foreach ($transport->getSent() as $envelope) {
+            // ReceivedStamp tells the bus "this came off a transport",
+            // so SendMessageMiddleware skips re-sending it and the
+            // handler actually runs. Without it you would just queue
+            // the same message again.
+            $bus->dispatch($envelope->with(new ReceivedStamp('async')));
+        }
+
+        $transport->reset();
     }
 }

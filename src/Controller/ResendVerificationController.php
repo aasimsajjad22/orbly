@@ -12,14 +12,16 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use App\Message\SendVerificationEmail;
 
 class ResendVerificationController extends AbstractController
 {
     public function __construct(
         private readonly UserRepository $users,
-        private readonly EmailVerifier $emailVerifier,
+        //private readonly EmailVerifier $emailVerifier,
         private readonly LoggerInterface $logger,
         // #[Target] picks a specific limiter by name. The config above
         // creates one service per limiter, so we must say which we want.
@@ -27,6 +29,8 @@ class ResendVerificationController extends AbstractController
         private readonly RateLimiterFactoryInterface $emailLimiter,
         #[Target('verification_email_ip')]
         private readonly RateLimiterFactoryInterface $ipLimiter,
+        private readonly MessageBusInterface $bus,
+
     ) {
     }
 
@@ -77,7 +81,8 @@ class ResendVerificationController extends AbstractController
             return $genericResponse;
         }
 
-        $this->emailVerifier->sendVerificationEmail($user);
+        //$this->emailVerifier->sendVerificationEmail($user);
+        $this->bus->dispatch(new SendVerificationEmail($user->getId()));
 
         return $genericResponse;
     }

@@ -16,6 +16,11 @@ services:
 
         bind:
             string $googleClientId: '%env(GOOGLE_CLIENT_ID)%'
+#            int $verifyEmailLifetime: 3600
+            string $stripeSecretKey: '%env(STRIPE_SECRET_KEY)%'
+            string $stripeWebhookSecret: '%env(STRIPE_WEBHOOK_SECRET)%'
+            string $stripeProPriceId: '%env(STRIPE_PRO_PRICE_ID)%'
+            string $stripeApiVersion: '%env(STRIPE_API_VERSION)%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name
@@ -28,3 +33,6 @@ services:
     # Bind the interface to the real implementation for dev and prod.
     # Anything type-hinting GoogleIdTokenVerifier gets the Google-calling one.
     App\Security\Google\GoogleIdTokenVerifier: '@App\Security\Google\GoogleApiIdTokenVerifier'
+    # Anything type-hinting the interface gets the real gateway in dev/prod.
+    # config/services_test.yaml will override this with the fake.
+    App\Payment\StripeGateway: '@App\Payment\StripeApiGateway'

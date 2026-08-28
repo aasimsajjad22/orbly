@@ -55,7 +55,10 @@ security:
         - { path: ^/api/auth/google, roles: PUBLIC_ACCESS }   # ← new
         - { path: ^/api/verify-email, roles: PUBLIC_ACCESS }
         - { path: ^/api/resend-verification, roles: PUBLIC_ACCESS }
-        - { path: ^/api,          roles: IS_AUTHENTICATED_FULLY }
+        # Stripe has no JWT. The signature IS the authentication — which
+        # is why parseWebhook() is not optional.
+        - { path: ^/api/stripe/webhook, roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
 # Speed up the test suite: bcrypt cost 4 instead of the default 13.
 # Hashing is deliberately slow in production; in tests it just wastes time.

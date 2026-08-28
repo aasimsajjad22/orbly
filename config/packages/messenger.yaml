@@ -10,9 +10,11 @@ framework:
         buses:
             messenger.bus.default:
                 middleware:
-                    # Holds dispatched messages until the current Doctrine
-                    # transaction commits. If it rolls back, the messages
-                    # are discarded rather than sent.
+                    # Holds dispatched messages until the surrounding
+                    # Doctrine transaction commits. Without it, a rolled
+                    # back ProcessedWebhookEvent insert could still leave
+                    # the message queued — and the worker would apply an
+                    # event we never recorded as processed.
                     - doctrine_transaction
 
         transports:
@@ -45,3 +47,4 @@ framework:
             # Same transport for now. When Phase 6 adds Stripe webhooks
             # we will split these into priority lanes.
             App\Message\FriendRequestSent: async
+            App\Message\ProcessStripeEvent: async

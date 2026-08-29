@@ -38,4 +38,20 @@ class SubscriptionRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['stripeCustomerId' => $id]);
     }
+
+    /**
+     * Look up by user ID rather than the User object.
+     *
+     * findOneBy(['user' => $userObject]) fails when the object has been
+     * detached — after an EntityManager clear(), for instance. An integer
+     * id has no such problem.
+     */
+    public function findOneByUserId(int $userId): ?Subscription
+    {
+        return $this->createQueryBuilder('s')
+            ->andWhere('s.user = :userId')
+            ->setParameter('userId', $userId)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }

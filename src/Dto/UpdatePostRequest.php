@@ -13,7 +13,7 @@ use Symfony\Component\Validator\Constraints as Assert;
  */
 final class UpdatePostRequest
 {
-    #[Assert\Length(min: 1, max: 2000)]
+    #[Assert\Length(min: 1, max: 10000)]
     public readonly ?string $content;
 
     public readonly ?PostVisibility $visibility;

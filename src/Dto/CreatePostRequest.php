@@ -8,7 +8,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 final class CreatePostRequest
 {
     #[Assert\NotBlank(message: 'A post cannot be empty.')]
-    #[Assert\Length(min: 1, max: 2000)]
+    #[Assert\Length(min: 1, max: 10000)]
     public readonly string $content;
 
     #[Assert\NotNull]

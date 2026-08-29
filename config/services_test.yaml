@@ -2,3 +2,10 @@
 # overrides the one above. One line, and every test gets the fake.
 services:
     App\Security\Google\GoogleIdTokenVerifier: '@App\Security\Google\FakeGoogleIdTokenVerifier'
+
+    # Override the real gateway for tests. Public so tests can pull it out
+    # of the container and inspect what was called.
+    App\Payment\StripeGateway: '@App\Payment\FakeStripeGateway'
+
+    App\Payment\FakeStripeGateway:
+        public: true

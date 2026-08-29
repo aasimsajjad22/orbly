@@ -40,10 +40,14 @@ class SubscriptionController extends AbstractController
             return $this->json([
                 'isPro' => false,
                 'status' => null,
+                'postCharacterLimit' => 2000,
             ]);
         }
 
-        return $this->json($subscription, 200, [], [
+        return $this->json([
+            'subscription' => $subscription,
+            'postCharacterLimit' => $subscription->isPro() ? 10000 : 2000,
+        ], 200, [], [
             'groups' => ['subscription:read'],
         ]);
     }

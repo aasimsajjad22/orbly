@@ -14,9 +14,15 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
+use App\Security\Voter\ProFeatureVoter;
 
 class PostController extends AbstractController
 {
+    /**
+     * Free accounts get 2000 characters; Pro gets 10000.
+     */
+    private const FREE_POST_LIMIT = 2000;
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly PostRepository $posts,
@@ -28,6 +34,28 @@ class PostController extends AbstractController
     {
         /** @var User $me */
         $me = $this->getUser();
+
+        // The length check the DTO cannot make, because it depends on WHO
+        // is posting, not on the content itself.
+        //
+        // mb_strlen, not strlen: strlen counts BYTES, so an emoji or an
+        // accented character would count as several. Users would hit the
+        // limit early and have no idea why.
+        if (!$this->isGranted(ProFeatureVoter::ACCESS)
+            && mb_strlen($payload->content) > self::FREE_POST_LIMIT) {
+            return new JsonResponse(
+                [
+                    'message' => sprintf(
+                        'Free accounts are limited to %d characters. Upgrade to Pro for longer posts.',
+                        self::FREE_POST_LIMIT
+                    ),
+                    // Tell the client WHY, so it can show an upgrade
+                    // prompt rather than a generic validation error.
+                    'upgradeRequired' => true,
+                ],
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
+        }
 
         $post = new Post($me, $payload->content, $payload->visibility);
 

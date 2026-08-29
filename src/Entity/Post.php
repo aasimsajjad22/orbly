@@ -16,9 +16,9 @@ use Symfony\Component\Serializer\Attribute\Groups;
 // that pair lets Postgres walk the index instead of sorting.
 //
 // Column order matters: equality column first, range/sort column second.
-#[ORM\Index(columns: ['author_id', 'created_at'], name: 'idx_posts_author_created')]
+#[ORM\Index(name: 'idx_posts_author_created', columns: ['author_id', 'created_at'])]
 // Supports the "exclude deleted" clause that every query carries.
-#[ORM\Index(columns: ['deleted_at'], name: 'idx_posts_deleted')]
+#[ORM\Index(name: 'idx_posts_deleted', columns: ['deleted_at'])]
 #[ORM\HasLifecycleCallbacks]
 class Post
 {
@@ -42,7 +42,7 @@ class Post
     #[Assert\NotBlank(message: 'A post cannot be empty.')]
     #[Assert\Length(
         min: 1,
-        max: 2000,
+        max: 10000,
         maxMessage: 'A post cannot be longer than {{ limit }} characters.',
     )]
     #[Groups(['post:list', 'post:read'])]

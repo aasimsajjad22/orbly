@@ -1,0 +1,36 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ profileUser.displayName }} · Orbly{% endblock %}
+
+{% block body %}
+    <div class="mb-6 rounded-lg border border-slate-200 bg-white p-5">
+        <div class="flex items-start justify-between">
+            <div>
+                <h1 class="text-xl font-semibold tracking-tight">{{ profileUser.displayName }}</h1>
+                {% if profileUser.bio %}
+                    <p class="mt-1 text-sm text-slate-600">{{ profileUser.bio }}</p>
+                {% endif %}
+                <p class="mt-2 text-xs text-slate-400">
+                    {{ friendCount }} friend{{ friendCount == 1 ? '' : 's' }} ·
+                    joined {{ profileUser.createdAt|date('M Y') }}
+                </p>
+            </div>
+
+            {% if not isMe %}
+                <twig:AddFriendButton :target="profileUser" />
+            {% endif %}
+        </div>
+    </div>
+
+    {% if posts is empty %}
+        <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center">
+            <p class="text-sm text-slate-500">Nothing to show.</p>
+        </div>
+    {% else %}
+        <div class="space-y-4">
+            {% for post in posts %}
+                {{ include('feed/_post.html.twig', { post: post }) }}
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

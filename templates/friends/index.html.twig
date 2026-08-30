@@ -3,30 +3,95 @@
 {% block title %}Friends · Orbly{% endblock %}
 
 {% block body %}
-    <h1 class="mb-6 text-xl font-semibold tracking-tight">Friends</h1>
 
-    {% if friendships is empty %}
-        <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center">
-            <p class="text-sm text-slate-500">You have no friends yet.</p>
-        </div>
-    {% else %}
-        <div class="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-            {% for friendship in friendships %}
-                {# friendship.friend is always the OTHER person — that is
-                   the payoff of storing both mirror rows. No "which side
-                   am I on" check needed. #}
-                <div class="flex items-center justify-between px-4 py-3">
-                    <div>
-                        <p class="text-sm font-medium">{{ friendship.friend.displayName }}</p>
-                        {% if friendship.friend.bio %}
-                            <p class="text-xs text-slate-500">{{ friendship.friend.bio }}</p>
-                        {% endif %}
+    <div class="mb-6 flex items-center justify-between">
+        <h1 class="text-xl font-semibold tracking-tight">Friends</h1>
+        <a href="{{ path('app_search') }}"
+           class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50">
+            Find people
+        </a>
+    </div>
+
+    {% if incoming %}
+        <section class="mb-8">
+            <h2 class="mb-2 text-sm font-medium text-slate-500">Requests for you</h2>
+            <div class="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+                {% for fr in incoming %}
+                    <div class="flex items-center justify-between px-4 py-3">
+                        <span class="text-sm font-medium">{{ fr.sender.displayName }}</span>
+
+                        <form method="post" action="{{ path('app_friend_request_respond', { id: fr.id }) }}"
+                              class="flex gap-2">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('respond') }}">
+
+                            {# Two submit buttons, same form, different
+                               values for "action". The controller reads
+                               whichever one was clicked. #}
+                            <button name="action" value="accept"
+                                    class="rounded-md bg-slate-900 px-3 py-1 text-xs font-medium text-white hover:bg-slate-700">
+                                Accept
+                            </button>
+                            <button name="action" value="decline"
+                                    class="rounded-md border border-slate-300 px-3 py-1 text-xs font-medium hover:bg-slate-50">
+                                Decline
+                            </button>
+                        </form>
                     </div>
-                    <span class="text-xs text-slate-400">
-                        since {{ friendship.createdAt|date('M Y') }}
-                    </span>
-                </div>
-            {% endfor %}
-        </div>
+                {% endfor %}
+            </div>
+        </section>
     {% endif %}
+
+    {% if outgoing %}
+        <section class="mb-8">
+            <h2 class="mb-2 text-sm font-medium text-slate-500">Sent by you</h2>
+            <div class="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+                {% for fr in outgoing %}
+                    <div class="flex items-center justify-between px-4 py-3">
+                        <span class="text-sm">{{ fr.recipient.displayName }}</span>
+
+                        <form method="post" action="{{ path('app_friend_request_cancel', { id: fr.id }) }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('cancel') }}">
+                            <button class="text-xs text-slate-400 hover:text-red-600">Cancel</button>
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
+    <section>
+        <h2 class="mb-2 text-sm font-medium text-slate-500">
+            Your friends{% if friendships %} ({{ friendships|length }}){% endif %}
+        </h2>
+
+        {% if friendships is empty %}
+            <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center">
+                <p class="text-sm text-slate-500">No friends yet.</p>
+                <a href="{{ path('app_search') }}" class="mt-1 inline-block text-sm font-medium text-slate-900 hover:underline">
+                    Find people to connect with
+                </a>
+            </div>
+        {% else %}
+            <div class="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+                {% for friendship in friendships %}
+                    <div class="flex items-center justify-between px-4 py-3">
+                        <div>
+                            {# friendship.friend is always the other person
+                               — the two-row design paying off again. #}
+                            <a href="{{ path('app_profile', { id: friendship.friend.id }) }}"
+                               class="text-sm font-medium hover:underline">
+                                {{ friendship.friend.displayName }}
+                            </a>
+                            {% if friendship.friend.bio %}
+                                <p class="text-xs text-slate-500">{{ friendship.friend.bio }}</p>
+                            {% endif %}
+                        </div>
+                        <span class="text-xs text-slate-400">since {{ friendship.createdAt|date('M Y') }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </section>
+
 {% endblock %}

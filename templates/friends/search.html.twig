@@ -1,0 +1,39 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Find people · Orbly{% endblock %}
+
+{% block body %}
+    <h1 class="mb-6 text-xl font-semibold tracking-tight">Find people</h1>
+
+    {# A plain GET form. Turbo makes the submit feel instant, and the
+       search term ends up in the URL so results are shareable and the
+       back button works. #}
+    <form method="get" class="mb-6">
+        <input type="search" name="q" value="{{ term }}" autofocus
+               placeholder="Search by name or email"
+               class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm
+                      focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900">
+    </form>
+
+    {% if term and results is empty %}
+        <p class="text-sm text-slate-500">No one found for “{{ term }}”.</p>
+    {% endif %}
+
+    {% if results %}
+        <div class="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+            {% for user in results %}
+                <div class="flex items-center justify-between px-4 py-3">
+                    <div>
+                        <a href="{{ path('app_profile', { id: user.id }) }}"
+                           class="text-sm font-medium hover:underline">{{ user.displayName }}</a>
+                        {% if user.bio %}
+                            <p class="text-xs text-slate-500">{{ user.bio }}</p>
+                        {% endif %}
+                    </div>
+
+                    <twig:AddFriendButton :target="user" />
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

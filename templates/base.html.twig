@@ -20,10 +20,9 @@
             <div class="flex items-center gap-5 text-sm">
                 <a href="{{ path('app_feed') }}" class="hover:text-slate-900">Feed</a>
                 <a href="{{ path('app_friends') }}" class="hover:text-slate-900">Friends</a>
-
-                {# app.user is the User entity — every getter is available #}
-                <span class="text-slate-400">{{ app.user.displayName }}</span>
-
+                <a href="{{ path('app_profile', { id: app.user.id }) }}" class="hover:text-slate-900">
+                    {{ app.user.displayName }}
+                </a>
                 <a href="{{ path('app_logout') }}" class="text-slate-500 hover:text-slate-900">Log out</a>
             </div>
         </nav>

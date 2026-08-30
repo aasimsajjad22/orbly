@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Friends · Orbly{% endblock %}
+
+{% block body %}
+    <h1 class="mb-6 text-xl font-semibold tracking-tight">Friends</h1>
+
+    {% if friendships is empty %}
+        <div class="rounded-lg border border-dashed border-slate-300 p-8 text-center">
+            <p class="text-sm text-slate-500">You have no friends yet.</p>
+        </div>
+    {% else %}
+        <div class="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+            {% for friendship in friendships %}
+                {# friendship.friend is always the OTHER person — that is
+                   the payoff of storing both mirror rows. No "which side
+                   am I on" check needed. #}
+                <div class="flex items-center justify-between px-4 py-3">
+                    <div>
+                        <p class="text-sm font-medium">{{ friendship.friend.displayName }}</p>
+                        {% if friendship.friend.bio %}
+                            <p class="text-xs text-slate-500">{{ friendship.friend.bio }}</p>
+                        {% endif %}
+                    </div>
+                    <span class="text-xs text-slate-400">
+                        since {{ friendship.createdAt|date('M Y') }}
+                    </span>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

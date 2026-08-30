@@ -1,0 +1,89 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Create an account · Orbly{% endblock %}
+
+{% block body %}
+    <div class="mx-auto max-w-sm">
+        <h1 class="mb-1 text-2xl font-semibold tracking-tight">Create an account</h1>
+        <p class="mb-6 text-sm text-slate-500">Join Orbly in a few seconds.</p>
+
+        {# A general error, e.g. an expired CSRF token — not tied to a field. #}
+        {% if errors.general is defined %}
+            <div class="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200">
+                {{ errors.general }}
+            </div>
+        {% endif %}
+
+        <form method="post" class="space-y-4">
+            <div>
+                <label for="displayName" class="mb-1 block text-sm font-medium">Name</label>
+
+                {# values.displayName is the submitted value, echoed back so a
+               failed submit does not wipe the form. |default('') because
+               on the first GET the array is empty. #}
+                <input type="text" id="displayName" name="displayName"
+                       value="{{ values.displayName|default('') }}"
+                       required autofocus autocomplete="name"
+                       class="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1
+                          {{ errors.displayName is defined
+                       ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                       : 'border-slate-300 focus:border-slate-900 focus:ring-slate-900' }}">
+
+                {# Errors are keyed by field name, so each message sits next to
+               its own input rather than in one list at the top. #}
+                {% if errors.displayName is defined %}
+                    <p class="mt-1 text-sm text-red-700">{{ errors.displayName }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="email" class="mb-1 block text-sm font-medium">Email</label>
+                <input type="email" id="email" name="email"
+                       value="{{ values.email|default('') }}"
+                       required autocomplete="email"
+                       class="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1
+                          {{ errors.email is defined
+                       ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                       : 'border-slate-300 focus:border-slate-900 focus:ring-slate-900' }}">
+
+                {% if errors.email is defined %}
+                    <p class="mt-1 text-sm text-red-700">{{ errors.email }}</p>
+                {% endif %}
+            </div>
+
+            <div>
+                <label for="password" class="mb-1 block text-sm font-medium">Password</label>
+
+                {# No value attribute — never echo a password back to the page. #}
+                <input type="password" id="password" name="password"
+                       required autocomplete="new-password"
+                       class="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1
+                          {{ errors.password is defined
+                       ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                       : 'border-slate-300 focus:border-slate-900 focus:ring-slate-900' }}">
+
+                {% if errors.password is defined %}
+                    <p class="mt-1 text-sm text-red-700">{{ errors.password }}</p>
+                {% else %}
+                    <p class="mt-1 text-xs text-slate-500">At least 8 characters.</p>
+                {% endif %}
+            </div>
+
+            {# The token id 'register' must match isCsrfTokenValid('register', ...)
+           in the controller. They are just paired strings — nothing
+           validates that you spelled them the same, so a typo means every
+           submission silently fails. #}
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('register') }}">
+
+            <button type="submit"
+                    class="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+                Create account
+            </button>
+        </form>
+
+        <p class="mt-6 text-center text-sm text-slate-500">
+            Already have an account?
+            <a href="{{ path('app_login') }}" class="font-medium text-slate-900 hover:underline">Sign in</a>
+        </p>
+    </div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Sign in · Orbly{% endblock %}
+
+{% block body %}
+    <div class="mx-auto max-w-sm">
+        <h1 class="mb-1 text-2xl font-semibold tracking-tight">Sign in</h1>
+        <p class="mb-6 text-sm text-slate-500">Welcome back to Orbly.</p>
+
+        {% if error %}
+            {# messageKey is a translation key. For an unverified account this
+           is our EmailNotVerifiedException::getMessageKey(), so the user
+           is told to check their email rather than "invalid credentials". #}
+            <div class="mb-4 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200">
+                {{ error.messageKey|trans(error.messageData, 'security') }}
+            </div>
+        {% endif %}
+
+        <form method="post" class="space-y-4">
+            <div>
+                <label for="email" class="mb-1 block text-sm font-medium">Email</label>
+                <input type="email" id="email" name="email" value="{{ last_username }}"
+                       required autofocus autocomplete="email"
+                       class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm
+                          focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900">
+            </div>
+
+            <div>
+                <label for="password" class="mb-1 block text-sm font-medium">Password</label>
+                <input type="password" id="password" name="password"
+                       required autocomplete="current-password"
+                       class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm
+                          focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900">
+            </div>
+
+            {# CSRF token. The firewall verifies it because we set
+           enable_csrf: true. The id "authenticate" is the value
+           form_login expects — it is not arbitrary. #}
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+            <label class="flex items-center gap-2 text-sm text-slate-600">
+                {# The name _remember_me is also fixed by the firewall. #}
+                <input type="checkbox" name="_remember_me" class="rounded border-slate-300">
+                Keep me signed in
+            </label>
+
+            <button type="submit"
+                    class="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white
+                       hover:bg-slate-700">
+                Sign in
+            </button>
+        </form>
+
+        <p class="mt-6 text-center text-sm text-slate-500">
+            No account? <a href="{{ path('app_register') }}" class="font-medium text-slate-900 hover:underline">Create one</a>
+        </p>
+    </div>
+{% endblock %}

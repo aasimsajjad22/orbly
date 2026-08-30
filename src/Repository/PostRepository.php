@@ -82,18 +82,19 @@ class PostRepository extends ServiceEntityRepository
             // single equality on f.friend. With one-row-per-friendship
             // this join condition would need an OR, on the hottest query
             // in the app.
-            ->innerJoin(
+            ->leftJoin(
                 'App\Entity\Friendship',
                 'f',
                 'WITH',
                 'f.friend = p.author AND f.user = :me'
             )
             ->setParameter('me', $user)
+            // Either a friendship matched, or you wrote it.
+            ->andWhere('f.id IS NOT NULL OR p.author = :me')
 
-            // Friends-only and public posts both qualify here — the author
-            // is a friend by definition. Private posts never appear in
-            // anyone else's feed.
-            ->andWhere('p.visibility IN (:visible)')
+            // Friends see public and friends-only. You additionally see
+            // your own private posts — nobody else ever does.
+            ->andWhere('p.visibility IN (:visible) OR p.author = :me')
             ->setParameter('visible', [PostVisibility::Public, PostVisibility::Friends])
 
             // Exclude anyone involved in a block, either direction. A

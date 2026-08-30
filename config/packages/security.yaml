@@ -16,11 +16,13 @@ security:
     firewalls:
         # Dev toolbar/profiler assets — never authenticate these.
         dev:
-            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            pattern: ^/(_(profiler|wdt)|css|images|js|assets)/
             security: false
 
-        # Firewall 1: the login endpoint only.
-        # It is separate because logging IN must not require a token.
+        # --- API firewalls (unchanged) ---
+        # These come FIRST because firewall matching stops at the first
+        # pattern that matches. If the web firewall were above them, it
+        # would swallow /api requests and break the JWT auth.
         login:
             pattern: ^/api/login
             stateless: true          # no session, no cookie
@@ -40,7 +42,44 @@ security:
         api:
             pattern: ^/api
             stateless: true
+            user_checker: App\Security\UserChecker
             jwt: ~                   # enables Lexik's JWT authenticator
+
+        # --- Web firewall (new) ---
+        # No pattern, so it matches everything the firewalls above did not.
+        # This is the catch-all and MUST be last.
+        web:
+            # lazy: only start a session when something actually reads the
+            # user. Anonymous page views stay cacheable.
+            lazy: true
+            provider: app_user_provider
+
+            # SAME checker as the API — so an unverified user cannot log in
+            # through the web form either. The Phase 2c gate applies to both
+            # entry points for free.
+            user_checker: App\Security\UserChecker
+
+            form_login:
+                # The route that RENDERS the form.
+                login_path: app_login
+                # The route the form POSTS to. Same route here: GET shows
+                # the form, POST is intercepted by the firewall — exactly
+                # like /api/login, where the controller never runs.
+                check_path: app_login
+                # Field names in the HTML form.
+                username_parameter: email
+                password_parameter: password
+                # Send them here after a successful login.
+                default_target_path: app_feed
+                # CSRF protection for the login form specifically.
+                enable_csrf: true
+            logout:
+                path: app_logout
+                target: app_login
+            # "Remember me" cookie, signed with APP_SECRET.
+            remember_me:
+                secret: '%kernel.secret%'
+                lifetime: 604800   # 1 week
 
         # Catch-all for anything outside /api (we have no web UI, so it's open).
         main:
@@ -59,6 +98,12 @@ security:
         # is why parseWebhook() is not optional.
         - { path: ^/api/stripe/webhook, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
+        # Web rules
+        - { path: ^/login,    roles: PUBLIC_ACCESS }
+        - { path: ^/register, roles: PUBLIC_ACCESS }
+        - { path: ^/verify,   roles: PUBLIC_ACCESS }
+        # Everything else in the web UI needs a session.
+        - { path: ^/,         roles: IS_AUTHENTICATED_FULLY }
 
 # Speed up the test suite: bcrypt cost 4 instead of the default 13.
 # Hashing is deliberately slow in production; in tests it just wastes time.

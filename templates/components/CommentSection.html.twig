@@ -1,0 +1,72 @@
+{# The wrapper is inline-block for the button, but the thread needs full
+   width. Solved by making the root full width and using a flex column. #}
+<div {{ attributes }} class="min-w-0 flex-1">
+    <button
+        data-action="live#action"
+        data-live-action-param="toggle"
+        class="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900">
+        <span>💬</span>
+        <span>{{ this.post.commentCount }}</span>
+    </button>
+
+    {% if this.expanded %}
+        <div class="mt-3 space-y-4 border-t border-slate-100 pt-3">
+
+            {% for comment in this.comments %}
+                <div>
+                    <div class="flex items-baseline justify-between gap-3">
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-sm font-medium">{{ comment.author.displayName }}</span>
+                            <span class="text-xs text-slate-400">{{ comment.createdAt|date('j M, H:i') }}</span>
+                        </div>
+
+                        {% if this.canDelete(comment) %}
+                            <button
+                                data-action="live#action"
+                                data-live-action-param="deleteComment"
+                                data-live-comment-id-param="{{ comment.id }}"
+                                class="shrink-0 text-xs text-slate-400 hover:text-red-600">
+                                Delete
+                            </button>
+                        {% endif %}
+                    </div>
+
+                    {# The content goes on ONE line with no surrounding
+                       whitespace. whitespace-pre-wrap preserves everything
+                       inside the tag, so putting the variable on its own
+                       indented line would render that indentation as
+                       leading spaces — which is why the text looked
+                       centred. #}
+                    <p class="mt-0.5 whitespace-pre-wrap text-sm text-slate-700">{{ comment.content }}</p>
+                </div>
+            {% else %}
+                <p class="text-sm text-slate-400">No comments yet.</p>
+            {% endfor %}
+
+            <div>
+                <textarea
+                    data-model="newComment"
+                    rows="2"
+                    placeholder="Write a comment…"
+                    class="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1
+                           {{ this.error
+                    ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                    : 'border-slate-300 focus:border-slate-900 focus:ring-slate-900' }}"></textarea>
+
+                {% if this.error %}
+                    <p class="mt-1 text-sm text-red-700">{{ this.error }}</p>
+                {% endif %}
+
+                <div class="mt-2 flex justify-end">
+                    <button
+                        data-action="live#action"
+                        data-live-action-param="addComment"
+                        class="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700">
+                        Comment
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    {% endif %}
+</div>

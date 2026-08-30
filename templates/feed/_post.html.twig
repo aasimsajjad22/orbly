@@ -24,14 +24,18 @@
 
     <p class="whitespace-pre-wrap text-sm leading-relaxed">{{ post.content }}</p>
 
-    <div class="mt-3 flex items-center gap-4 text-sm text-slate-500">
-        {# Static for now — chunk 4 turns these into Live Component
-           buttons that update without a page load. #}
-        <span>♥ {{ post.likeCount }}</span>
-        <span>💬 {{ post.commentCount }}</span>
-
-        {% if post.edited %}
-            <span class="text-xs text-slate-400">edited</span>
-        {% endif %}
+    {# Actions row: like and comment toggle sit side by side.
+       The CommentSection's expanded thread renders BELOW, which is why
+       this cannot be a single flex row containing both components. #}
+    <div class="mt-3 border-t border-slate-100 pt-3">
+        {# items-start, NOT items-center.
+           When the comment thread expands, its div becomes tall. With
+           items-center the like button gets vertically centred against
+           that whole height, which is why the heart drifts down the page
+           only after clicking comment. #}
+        <div class="flex items-start gap-4">
+            <twig:LikeButton :post="post" />
+            <twig:CommentSection :post="post" />
+        </div>
     </div>
 </article>

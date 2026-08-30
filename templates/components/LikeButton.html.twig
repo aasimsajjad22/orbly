@@ -1,0 +1,16 @@
+{# The div MUST have {{ attributes }} — that renders the data-live-*
+   attributes the JavaScript needs to identify and re-render this
+   component. Forget it and nothing happens on click, with no error. #}
+<div {{ attributes }} class="shrink-0">    <button
+        {# data-action wires the click to our LiveAction. The format is
+           live#action, and the param names the method. #}
+        data-action="live#action"
+        data-live-action-param="toggle"
+
+        class="flex items-center gap-1.5 text-sm transition
+               {{ this.liked ? 'text-rose-600' : 'text-slate-500 hover:text-rose-600' }}">
+
+        <span>{{ this.liked ? '♥' : '♡' }}</span>
+        <span>{{ this.post.likeCount }}</span>
+    </button>
+</div>

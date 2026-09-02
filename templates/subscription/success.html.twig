@@ -1,0 +1,24 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+    <div class="rounded-lg border border-slate-200 bg-white p-8 text-center">
+        {% if subscription and subscription.pro %}
+            <h1 class="text-xl font-semibold">You're on Pro</h1>
+            <p class="mt-2 text-sm text-slate-500">Thanks. Your subscription is active.</p>
+        {% else %}
+            {# The webhook may not have arrived yet — Stripe redirects the
+           browser and sends the webhook independently, and either can
+           win the race. Never assume payment succeeded just because the
+           user landed here. #}
+            <h1 class="text-xl font-semibold">Payment received</h1>
+            <p class="mt-2 text-sm text-slate-500">
+                We're still confirming with our payment provider. This usually takes a few seconds.
+            </p>
+        {% endif %}
+
+        <a href="{{ path('app_feed') }}"
+           class="mt-6 inline-block rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">
+            Back to feed
+        </a>
+    </div>
+{% endblock %}

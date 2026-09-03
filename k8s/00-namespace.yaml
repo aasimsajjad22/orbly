@@ -1,0 +1,9 @@
+# A namespace is a virtual cluster inside the cluster — a way to group
+# related objects and keep names from colliding.
+#
+# Everything for Orbly goes in here, so `kubectl delete namespace orbly`
+# removes the whole application in one command.
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: orbly

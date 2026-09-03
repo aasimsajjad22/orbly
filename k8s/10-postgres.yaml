@@ -1,0 +1,122 @@
+# ---- Storage ----
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: postgres-data
+    namespace: orbly
+spec:
+    accessModes:
+        # ReadWriteOnce = mountable read/write by a single node. Correct for
+        # a database, which must not have two writers.
+        - ReadWriteOnce
+    resources:
+        requests:
+            storage: 2Gi
+---
+# ---- The database ----
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+    name: postgres
+    namespace: orbly
+spec:
+    serviceName: postgres
+    replicas: 1
+
+    # The selector tells the StatefulSet which pods belong to it. It MUST
+    # match the pod template's labels below — a mismatch means the
+    # controller creates pods it then does not recognise, forever.
+    selector:
+        matchLabels:
+            app: postgres
+
+    template:
+        metadata:
+            labels:
+                app: postgres
+        spec:
+            containers:
+                - name: postgres
+                  image: postgres:16-alpine
+
+                  ports:
+                      - containerPort: 5432
+                        name: postgres
+
+                  env:
+                      - name: POSTGRES_DB
+                        value: orbly
+                      - name: POSTGRES_USER
+                        value: orbly
+                      - name: POSTGRES_PASSWORD
+                          # Pull one key out of the Secret rather than hardcoding it.
+                        valueFrom:
+                            secretKeyRef:
+                                name: orbly-secret
+                                key: POSTGRES_PASSWORD
+
+                      # The official image refuses to initialise into a directory
+                      # that already contains anything — and a mounted volume has a
+                      # lost+found. Using a subdirectory avoids that.
+                      - name: PGDATA
+                        value: /var/lib/postgresql/data/pgdata
+
+                  volumeMounts:
+                      - name: data
+                        mountPath: /var/lib/postgresql/data
+
+                    # Two probes, two different questions.
+                    #
+                    # readiness: "can it serve traffic yet?" A pod that is not
+                    # ready is removed from its Service, so nothing routes to it.
+                  readinessProbe:
+                      exec:
+                          command: ["pg_isready", "-U", "orbly"]
+                      initialDelaySeconds: 5
+                      periodSeconds: 5
+
+                    # liveness: "is it wedged?" A failing liveness probe gets the
+                    # container RESTARTED. Set the delay generously — a slow start
+                    # that trips this creates a restart loop.
+                  livenessProbe:
+                      exec:
+                          command: ["pg_isready", "-U", "orbly"]
+                      initialDelaySeconds: 30
+                      periodSeconds: 10
+
+                  resources:
+                      # requests = what the scheduler reserves when placing the pod
+                      # limits  = the hard ceiling; exceeding memory means the
+                      #           container is killed (OOMKilled)
+                      requests:
+                          memory: "256Mi"
+                          cpu: "100m"        # 100 millicores = 0.1 of a CPU
+                      limits:
+                          memory: "512Mi"
+                          cpu: "500m"
+
+            volumes:
+                - name: data
+                  persistentVolumeClaim:
+                      claimName: postgres-data
+---
+# ---- Service: a stable name in front of the pod ----
+apiVersion: v1
+kind: Service
+metadata:
+    name: postgres
+    namespace: orbly
+spec:
+    # ClusterIP = reachable only from inside the cluster. Correct for a
+    # database; you never want it exposed externally.
+    type: ClusterIP
+
+    # Route to any pod carrying this label. THIS is how a Service finds
+    # its pods — not by name, by label. Pods come and go with new IPs;
+    # the label stays.
+    selector:
+        app: postgres
+
+    ports:
+        - port: 5432
+          targetPort: 5432

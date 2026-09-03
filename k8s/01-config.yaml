@@ -1,0 +1,32 @@
+# Non-secret configuration, as key/value pairs.
+#
+# The Kubernetes equivalent of the `environment:` block in compose —
+# except it is a separate object, so you can change config and restart
+# pods without rebuilding the image.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: orbly-config
+    namespace: orbly
+data:
+    APP_ENV: "prod"
+    APP_DEBUG: "0"
+
+    # Service DNS. Inside a cluster, "postgres" resolves to the Postgres
+    # Service in this namespace — exactly like compose's service-name DNS,
+    # just backed by CoreDNS (one of the pods you saw running).
+    #
+    # The full form is postgres.orbly.svc.cluster.local; the short name
+    # works because we are in the same namespace.
+    DATABASE_URL: "postgresql://orbly:orbly@postgres:5432/orbly?serverVersion=16&charset=utf8"
+    MESSENGER_TRANSPORT_DSN: "amqp://orbly:orbly@rabbitmq:5672/%2f/messages"
+    MAILER_DSN: "smtp://mailpit:1025"
+
+    JWT_SECRET_KEY: "/app/config/jwt/private.pem"
+    JWT_PUBLIC_KEY: "/app/config/jwt/public.pem"
+
+    STRIPE_API_VERSION: "2025-03-31.basil"
+
+    # Must match how the app is actually reached, or the signed links in
+    # verification emails point somewhere that does not exist.
+    DEFAULT_URI: "http://localhost:8090"

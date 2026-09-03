@@ -1,0 +1,143 @@
+# A production-LIKE stack, for verifying the image locally.
+# Real production uses Kubernetes (Phase 12) or ECS (Phase 13); this
+# exists to prove the image works before either.
+
+services:
+  # ---- nginx: serves static files, proxies PHP to FPM ----
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      php:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # nginx needs the PUBLIC directory to serve static files directly
+      # without going through PHP. It reads them from the app image.
+      - app_public:/app/public:ro
+    restart: unless-stopped
+
+  # ---- php-fpm: the application ----
+  php:
+    build:
+      context: .
+      # Which stage of the multi-stage Dockerfile to build.
+      target: app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: 0
+      # Secrets come from the environment, never from a file in the
+      # image. In Kubernetes these become Secret references.
+      APP_SECRET: ${APP_SECRET:-change-me-in-production}
+      DATABASE_URL: postgresql://orbly:orbly@postgres:5432/orbly?serverVersion=16&charset=utf8
+      MESSENGER_TRANSPORT_DSN: amqp://orbly:orbly@rabbitmq:5672/%2f/messages
+      MAILER_DSN: smtp://mailpit:1025
+      JWT_SECRET_KEY: /app/config/jwt/private.pem
+      JWT_PUBLIC_KEY: /app/config/jwt/public.pem
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID:-price_placeholder}
+      STRIPE_API_VERSION: 2025-03-31.basil
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-placeholder}
+    volumes:
+      # Share public/ with nginx so it can serve assets directly.
+      - app_public:/app/public
+      # JWT keys mounted at RUNTIME, not baked into the image. Keys in
+      # an image means anyone who pulls it can forge tokens.
+      - ./config/jwt:/app/config/jwt:ro
+    restart: unless-stopped
+
+  # ---- worker: consumes the queue ----
+  worker:
+    build:
+      context: .
+      # Same image, different stage — so the same code, different command.
+      target: worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: 0
+      APP_SECRET: ${APP_SECRET:-change-me-in-production}
+      DATABASE_URL: postgresql://orbly:orbly@postgres:5432/orbly?serverVersion=16&charset=utf8
+      MESSENGER_TRANSPORT_DSN: amqp://orbly:orbly@rabbitmq:5672/%2f/messages
+      MAILER_DSN: smtp://mailpit:1025
+      JWT_SECRET_KEY: /app/config/jwt/private.pem
+      JWT_PUBLIC_KEY: /app/config/jwt/public.pem
+      JWT_PASSPHRASE: ${JWT_PASSPHRASE:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID:-price_placeholder}
+      STRIPE_API_VERSION: 2025-03-31.basil
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-placeholder}
+    volumes:
+      - ./config/jwt:/app/config/jwt:ro
+    # Two workers, to prove the queue distributes correctly.
+    deploy:
+      replicas: 2
+    restart: unless-stopped
+
+  # ---- migrate: runs once, then exits ----
+  migrate:
+    build:
+      context: .
+      target: app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: prod
+      APP_SECRET: ${APP_SECRET:-change-me-in-production}
+      DATABASE_URL: postgresql://orbly:orbly@postgres:5432/orbly?serverVersion=16&charset=utf8
+    # A ONE-OFF task, not a long-running service. This is the pattern
+    # that avoids several replicas racing to apply the same migration.
+    # In Kubernetes it becomes a Job; in ECS a one-off task.
+    command: php bin/console doctrine:migrations:migrate --no-interaction
+    restart: "no"
+
+  # ---- dependencies ----
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: orbly
+      POSTGRES_USER: orbly
+      POSTGRES_PASSWORD: orbly
+    volumes:
+      - prod_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orbly"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: orbly
+      RABBITMQ_DEFAULT_PASS: orbly
+    ports:
+      - "15673:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8026:8025"
+
+volumes:
+  prod_postgres_data:
+  app_public:

@@ -1,0 +1,32 @@
+# Everything the image must NOT contain or does not need.
+# Without this, the build context includes vendor/ and .git, which makes
+# every build slow and risks baking secrets into a layer.
+
+.git
+.gitignore
+.github
+
+# Installed fresh inside the image with --no-dev
+vendor/
+node_modules/
+
+# Regenerated in the image; a host cache would be wrong for the container
+var/
+
+# SECRETS. Never in an image. Config comes from environment variables.
+.env.local
+.env.*.local
+config/jwt/*.pem
+
+docker-compose*.yaml
+compose*.yaml
+Dockerfile
+.dockerignore
+
+tests/
+phpunit.dist.xml
+.phpunit.cache/
+
+README.md
+TODO.md
+postman/

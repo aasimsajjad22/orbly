@@ -135,6 +135,59 @@ class PostRepository extends ServiceEntityRepository
     }
 
     /**
+     * Find posts whose stored counters disagree with the real rows.
+     *
+     * Raw SQL rather than DQL, deliberately. DQL cannot express a
+     * correlated subquery in a SELECT clause, and this needs to compare
+     * a stored column against a COUNT in the same row.
+     *
+     * @return array<int, array{id: int, like_count: int, real_likes: int, comment_count: int, real_comments: int}>
+     */
+    public function findPostsWithDriftedCounters(int $limit = 1000): array
+    {
+        $sql = <<<'SQL'
+            SELECT
+                p.id,
+                p.like_count,
+                p.comment_count,
+                (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id) AS real_likes,
+                (SELECT COUNT(*) FROM comments   c WHERE c.post_id = p.id) AS real_comments
+            FROM posts p
+            WHERE
+                p.like_count    <> (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id)
+             OR p.comment_count <> (SELECT COUNT(*) FROM comments   c WHERE c.post_id = p.id)
+            ORDER BY p.id
+            LIMIT :limit
+            SQL;
+
+        return $this->getEntityManager()
+            ->getConnection()
+            ->executeQuery($sql, ['limit' => $limit])
+            ->fetchAllAssociative();
+    }
+
+    /**
+     * Rewrite both counters from the real rows.
+     *
+     * A single UPDATE with subqueries, so the read and the write happen
+     * atomically — no window where another request could change the
+     * count between us reading it and writing it back.
+     */
+    public function repairCounters(int $postId): void
+    {
+        $sql = <<<'SQL'
+            UPDATE posts p SET
+                like_count    = (SELECT COUNT(*) FROM post_likes l WHERE l.post_id = p.id),
+                comment_count = (SELECT COUNT(*) FROM comments   c WHERE c.post_id = p.id)
+            WHERE p.id = :id
+            SQL;
+
+        $this->getEntityManager()
+            ->getConnection()
+            ->executeStatement($sql, ['id' => $postId]);
+    }
+
+    /**
      * Re-read a post from the database, discarding the cached version.
      *
      * Needed after any bulk DQL UPDATE: those change rows directly and do

@@ -1,0 +1,141 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: web
+    namespace: orbly
+spec:
+    # Two pods, so a rolling deploy always has one serving traffic.
+    replicas: 2
+
+    # How the Deployment finds its pods — by LABEL, not by name. Must
+    # match the template's labels below, or the controller creates pods it
+    # then does not recognise.
+    selector:
+        matchLabels:
+            app: web
+
+    strategy:
+        type: RollingUpdate
+        rollingUpdate:
+            # 0 = zero downtime. A new pod must pass its readiness probe
+            # before an old one is removed.
+            maxUnavailable: 0
+            maxSurge: 1
+
+    template:
+        metadata:
+            labels:
+                app: web
+        spec:
+            # ---- initContainer: runs to completion BEFORE the app starts ----
+            # nginx serves files from public/, but those files live inside the
+            # PHP image. This copies them into a volume both containers share.
+            initContainers:
+                - name: copy-public
+                  image: orbly:latest
+                  imagePullPolicy: IfNotPresent
+                  command: ["sh", "-c", "cp -R /app/public/. /shared-public/"]
+                  volumeMounts:
+                      - name: public
+                        mountPath: /shared-public
+
+            containers:
+                # ---- nginx ----
+                - name: nginx
+                  image: nginx:1.27-alpine
+                  ports:
+                      - containerPort: 80
+                        name: http
+
+                  volumeMounts:
+                      - name: nginx-config
+                        mountPath: /etc/nginx/conf.d
+                      - name: public
+                        mountPath: /app/public
+                        readOnly: true
+
+                  readinessProbe:
+                      httpGet:
+                          path: /login
+                          port: 80
+                      initialDelaySeconds: 10
+                      periodSeconds: 10
+
+                  resources:
+                      requests:
+                          memory: "64Mi"
+                          cpu: "50m"
+                      limits:
+                          memory: "128Mi"
+                          cpu: "200m"
+
+                # ---- php-fpm ----
+                # SAME POD as nginx — the "sidecar" pattern. Two containers, one
+                # network namespace, one lifecycle.
+                - name: php
+                  image: orbly:latest
+                  imagePullPolicy: IfNotPresent
+
+                  ports:
+                      - containerPort: 9000
+                        name: fpm
+
+                  envFrom:
+                      - configMapRef:
+                            name: orbly-config
+                      - secretRef:
+                            name: orbly-secret
+
+                  volumeMounts:
+                      - name: public
+                        mountPath: /app/public
+                      - name: jwt-keys
+                        mountPath: /app/config/jwt
+                        readOnly: true
+
+                  readinessProbe:
+                      tcpSocket:
+                          port: 9000
+                      initialDelaySeconds: 15
+                      periodSeconds: 10
+
+                  livenessProbe:
+                      tcpSocket:
+                          port: 9000
+                      initialDelaySeconds: 40
+                      periodSeconds: 20
+
+                  resources:
+                      requests:
+                          memory: "256Mi"
+                          cpu: "100m"
+                      limits:
+                          memory: "512Mi"
+                          cpu: "500m"
+
+            volumes:
+                - name: nginx-config
+                  configMap:
+                      name: nginx-config
+
+                # emptyDir: scratch space created with the pod, destroyed with
+                # it, shared by every container in it. Exactly what public/ needs.
+                - name: public
+                  emptyDir: {}
+
+                - name: jwt-keys
+                  secret:
+                      secretName: orbly-jwt
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: web
+    namespace: orbly
+spec:
+    type: ClusterIP
+    selector:
+        app: web
+    ports:
+        - port: 80
+          targetPort: 80

@@ -1,0 +1,38 @@
+# A Job runs pods until they COMPLETE, then stops. Unlike a Deployment,
+# it does not restart a pod that finished successfully.
+#
+# This is what stops replicas racing to apply the same migration — it
+# runs exactly once, before the app pods need the schema.
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: migrate
+    namespace: orbly
+spec:
+    backoffLimit: 3
+
+    template:
+        spec:
+            # Never = if the container exits non-zero, do not restart it in
+            # place; the Job controller creates a fresh pod instead.
+            restartPolicy: Never
+
+            containers:
+                - name: migrate
+                  image: orbly:latest
+                  imagePullPolicy: IfNotPresent
+
+                  command:
+                      - php
+                      - bin/console
+                      - doctrine:migrations:migrate
+                      - --no-interaction
+
+                    # envFrom pulls in EVERY key from a ConfigMap or Secret as an
+                    # environment variable — far less repetitive than twenty
+                    # individual valueFrom blocks.
+                  envFrom:
+                      - configMapRef:
+                            name: orbly-config
+                      - secretRef:
+                            name: orbly-secret

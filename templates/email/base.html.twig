@@ -1,0 +1,59 @@
+{# All transactional emails extend this.
+
+   The apply/inline_css block is the key piece: everything inside it is
+   rendered, then every CSS rule in the <style> block is moved onto the
+   matching elements as inline style="" attributes.
+
+   That matters because Gmail strips <style> entirely — without inlining,
+   your email arrives completely unstyled. #}
+{% apply inline_css(source('@styles/email.css')) %}
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{% block subject %}Orbly{% endblock %}</title>
+    </head>
+    <body>
+
+    {# Tables, not divs. Outlook renders with Word's layout engine, which
+   has no reliable support for modern CSS positioning. Nested tables are
+   the only thing that works everywhere. #}
+    <table class="wrapper" width="100%" cellpadding="0" cellspacing="0" role="presentation">
+        <tr>
+            <td align="center">
+
+                <table class="container" width="600" cellpadding="0" cellspacing="0" role="presentation">
+
+                    <tr>
+                        <td class="header">
+                            <span class="logo">Orbly</span>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="content">
+                            {% block content %}{% endblock %}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td class="footer">
+                            <p class="footer-text">
+                                You're receiving this because you have an Orbly account.
+                            </p>
+                            <p class="footer-text">
+                                Orbly &middot; This is a portfolio project, not a real service.
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+
+            </td>
+        </tr>
+    </table>
+
+    </body>
+    </html>
+{% endapply %}

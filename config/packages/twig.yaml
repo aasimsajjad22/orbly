@@ -1,5 +1,9 @@
 twig:
-    file_name_pattern: '*.twig'
+    default_path: '%kernel.project_dir%/templates'
+    paths:
+        # Registers the "styles" namespace so source('@styles/email.css')
+        # can find the file. Without it, source() only looks in templates/.
+        '%kernel.project_dir%/assets/styles': styles
 
 when@test:
     twig:

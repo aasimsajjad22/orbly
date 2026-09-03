@@ -48,3 +48,6 @@ framework:
             # we will split these into priority lanes.
             App\Message\FriendRequestSent: async
             App\Message\ProcessStripeEvent: async
+            App\Message\SubscriptionActivated: async
+            App\Message\SubscriptionPaymentFailed: async
+            App\Message\SubscriptionCancelled: async

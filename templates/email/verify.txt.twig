@@ -1,0 +1,20 @@
+{# The plain-text alternative.
+
+   Not decoration: an HTML-only email scores worse with spam filters,
+   and some clients (and screen readers) prefer text. Every transactional
+   email should have one.
+
+   No HTML, no styling — just readable text with the link on its own
+   line so clients can autolink it. #}
+Hi {{ displayName }},
+
+Welcome to Orbly. Confirm your email address to activate your account:
+
+{{ signedUrl }}
+
+This link expires in {{ expiresInMinutes }} minutes.
+
+If you didn't create an Orbly account, you can ignore this email.
+
+--
+Orbly

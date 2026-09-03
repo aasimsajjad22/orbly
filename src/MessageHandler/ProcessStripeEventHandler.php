@@ -10,6 +10,10 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
+use Symfony\Component\Messenger\MessageBusInterface;
+use App\Message\SubscriptionActivated;
+use App\Message\SubscriptionCancelled;
+use App\Message\SubscriptionPaymentFailed;
 
 /**
  * Applies a verified Stripe event to our local subscription mirror.
@@ -22,6 +26,7 @@ final readonly class ProcessStripeEventHandler
         private SubscriptionPayloadReader $reader,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private MessageBusInterface $bus,
     ) {
     }
 
@@ -106,6 +111,15 @@ final readonly class ProcessStripeEventHandler
             return;
         }
 
+        // Capture the old status BEFORE syncing, so we can tell an
+        // activation from a routine update. Without this we would email
+        // on every subscription.updated event, which fires for card
+        // changes and plan tweaks too.
+        $wasActive = $subscription->isPro();
+        $hadSubscriptionId = $subscription->getStripeSubscriptionId() !== null;
+
+        $newStatus = $this->reader->readStatus($data);
+
         $subscription->syncFromStripe(
             $data['id'],
             $this->reader->readStatus($data),
@@ -115,10 +129,52 @@ final readonly class ProcessStripeEventHandler
 
         $this->em->flush();
 
+        // Dispatch AFTER the flush. The email handler reloads the
+        // subscription, and it must see the new state.
+        $this->dispatchEmailFor($subscription, $wasActive, $hadSubscriptionId, $data);
+
+
         $this->logger->info('Synced subscription state from Stripe.', [
             'subscriptionId' => $data['id'],
             'status' => $data['status'],
         ]);
+    }
+
+    /**
+     * Decide which email, if any, this state change warrants.
+     *
+     * Kept separate from the sync so the branching is readable, and so
+     * the sync itself has no opinion about email.
+     */
+    private function dispatchEmailFor(
+        \App\Entity\Subscription $subscription,
+        bool $wasActive,
+        bool $hadSubscriptionId,
+        array $data,
+    ): void {
+        $userId = (int) $subscription->getUser()->getId();
+
+        // Became active having not been. Covers both the first payment
+        // and recovery after a failed one.
+        if (!$wasActive && $subscription->isPro()) {
+            $this->bus->dispatch(new SubscriptionActivated(
+                $userId,
+                // No prior subscription id means this is their first.
+                isFirstPayment: !$hadSubscriptionId,
+            ));
+
+            return;
+        }
+
+        // They cancelled — status is still active, but the flag is set.
+        // Only email on the TRANSITION, not on every later update, or
+        // they get the same email each time Stripe touches the record.
+        if ($subscription->isCancelAtPeriodEnd() && !($data['_alreadyCancelled'] ?? false)) {
+            $this->bus->dispatch(new SubscriptionCancelled(
+                $userId,
+                $subscription->getCurrentPeriodEnd()?->format('j F Y'),
+            ));
+        }
     }
 
     private function onSubscriptionDeleted(array $data): void
@@ -156,9 +212,27 @@ final readonly class ProcessStripeEventHandler
      */
     private function onPaymentFailed(array $data): void
     {
+        $customerId = $data['customer'] ?? null;
+
+        if ($customerId === null) {
+            return;
+        }
+
+        $subscription = $this->subscriptions->findOneByStripeCustomerId($customerId);
+
+        if ($subscription === null) {
+            return;
+        }
+
+        // Still no status change here — Stripe's dunning process decides
+        // that and sends a subscription.updated when it does. We only
+        // email, so the user can fix their card before it escalates.
+        $this->bus->dispatch(new SubscriptionPaymentFailed(
+            (int) $subscription->getUser()->getId()
+        ));
+
         $this->logger->warning('A Stripe invoice payment failed.', [
-            'customer' => $data['customer'] ?? null,
-            'invoice' => $data['id'] ?? null,
+            'customer' => $customerId,
         ]);
     }
 

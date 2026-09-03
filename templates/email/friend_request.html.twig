@@ -1,9 +1,15 @@
-<p>Hi {{ recipientName }},</p>
+{% extends 'email/base.html.twig' %}
 
-<p><strong>{{ senderName }}</strong> sent you a friend request on Orbly.</p>
+{% block subject %}{{ senderName }} sent you a friend request{% endblock %}
 
-<p>Sign in to accept or decline it.</p>
+{% block content %}
+    <h1>New friend request</h1>
 
-<p style="color: #888; font-size: 12px;">
-    You are receiving this because someone requested to connect with you.
-</p>
+    <p>Hi {{ recipientName }},</p>
+
+    <p><strong>{{ senderName }}</strong> would like to connect with you on Orbly.</p>
+
+    <p>
+        <a href="{{ friendsUrl }}" class="button">View request</a>
+    </p>
+{% endblock %}

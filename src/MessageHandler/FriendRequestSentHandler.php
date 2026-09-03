@@ -10,6 +10,7 @@ use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Mime\Address;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Emails the recipient that someone wants to connect.
@@ -25,6 +26,7 @@ final readonly class FriendRequestSentHandler
         private FriendRequestRepository $requests,
         private MailerInterface $mailer,
         private LoggerInterface $logger,
+        private UrlGeneratorInterface $urlGenerator,
     ) {
     }
 
@@ -77,9 +79,18 @@ final readonly class FriendRequestSentHandler
             ->to((string) $recipient->getEmail())
             ->subject(sprintf('%s sent you a friend request', $sender->getDisplayName()))
             ->htmlTemplate('email/friend_request.html.twig')
+            ->textTemplate('email/friend_request.txt.twig')
             ->context([
                 'recipientName' => $recipient->getDisplayName(),
                 'senderName' => $sender->getDisplayName(),
+                // ABSOLUTE_URL, not a path. There is no incoming request
+                // in a worker to infer the host from — this relies on the
+                // router.default_uri set back in Phase 2c.
+                'friendsUrl' => $this->urlGenerator->generate(
+                    'app_friends',
+                    [],
+                    UrlGeneratorInterface::ABSOLUTE_URL
+                ),
             ]);
 
         // Throwing here means Messenger retries — correct for a transient

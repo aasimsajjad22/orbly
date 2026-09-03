@@ -1,0 +1,90 @@
+/* Email CSS. Written normally here, inlined at render time by
+   inline_css(), so it survives clients that strip <style> blocks.
+
+   Constraints worth knowing:
+   - no flexbox, no grid — Outlook ignores both
+   - no shorthand that some clients mis-parse (write out margins fully)
+   - web fonts do not load reliably; always give a real fallback stack */
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #f8fafc;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    -webkit-font-smoothing: antialiased;
+}
+
+.wrapper {
+    background-color: #f8fafc;
+    padding-top: 32px;
+    padding-bottom: 32px;
+}
+
+.container {
+    background-color: #ffffff;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.header {
+    padding: 24px 32px 0 32px;
+}
+
+.logo {
+    font-size: 18px;
+    font-weight: 600;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+}
+
+.content {
+    padding: 24px 32px 32px 32px;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+h1 {
+    margin: 0 0 16px 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+p {
+    margin: 0 0 16px 0;
+}
+
+/* Buttons are <a> tags styled as blocks. A real <button> does nothing
+   in an email — there is no form to submit and no JavaScript. */
+.button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #0f172a;
+    color: #ffffff;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.muted {
+    color: #64748b;
+    font-size: 13px;
+}
+
+/* Long signed URLs overflow the 600px container without this. */
+.break {
+    word-break: break-all;
+}
+
+.footer {
+    padding: 0 32px 24px 32px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.footer-text {
+    margin: 16px 0 0 0;
+    color: #94a3b8;
+    font-size: 12px;
+}

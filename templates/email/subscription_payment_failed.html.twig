@@ -1,0 +1,19 @@
+{% extends 'email/base.html.twig' %}
+
+{% block content %}
+    <h1>We couldn't take your payment</h1>
+
+    <p>Hi {{ displayName }},</p>
+
+    <p>
+        Your most recent Orbly Pro payment didn't go through. This usually means a card
+        expired or was declined.
+    </p>
+
+    <p>
+        We'll try again over the next few days. Updating your card now avoids any
+        interruption.
+    </p>
+
+    <p><a href="{{ subscriptionUrl }}" class="button">Update payment method</a></p>
+{% endblock %}

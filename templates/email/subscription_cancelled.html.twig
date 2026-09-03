@@ -1,0 +1,19 @@
+{% extends 'email/base.html.twig' %}
+
+{% block content %}
+    <h1>Your subscription is ending</h1>
+
+    <p>Hi {{ displayName }},</p>
+
+    {% if accessUntil %}
+        {# The state that confuses people: cancelled, but still paid up.
+           Say the date explicitly so nobody thinks access stopped today. #}
+        <p>You've cancelled Orbly Pro. You'll keep Pro features until <strong>{{ accessUntil }}</strong>.</p>
+    {% else %}
+        <p>You've cancelled Orbly Pro.</p>
+    {% endif %}
+
+    <p>Changed your mind? You can resubscribe at any time.</p>
+
+    <p><a href="{{ subscriptionUrl }}" class="button">Manage subscription</a></p>
+{% endblock %}

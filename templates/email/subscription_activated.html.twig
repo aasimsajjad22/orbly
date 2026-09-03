@@ -1,0 +1,15 @@
+{% extends 'email/base.html.twig' %}
+
+{% block content %}
+    <h1>{{ isFirstPayment ? 'Welcome to Orbly Pro' : 'Your subscription has renewed' }}</h1>
+
+    <p>Hi {{ displayName }},</p>
+
+    {% if isFirstPayment %}
+        <p>Your Orbly Pro subscription is active. You can now write posts of up to 10,000 characters.</p>
+    {% else %}
+        <p>Your Orbly Pro subscription has renewed for another month. Nothing to do.</p>
+    {% endif %}
+
+    <p><a href="{{ subscriptionUrl }}" class="button">Manage subscription</a></p>
+{% endblock %}

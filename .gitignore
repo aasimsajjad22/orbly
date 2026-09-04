@@ -28,3 +28,4 @@
 /public/assets/
 /assets/vendor/
 ###< symfony/asset-mapper ###
+k8s/*-secret.local.yaml

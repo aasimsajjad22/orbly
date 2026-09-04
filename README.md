@@ -1,3 +1,5 @@
+[![Tests](https://github.com/YOUR_USERNAME/orbly/actions/workflows/tests.yml/badge.svg)](https://github.com/YOUR_USERNAME/orbly/actions/workflows/tests.yml)
+[![Docker](https://github.com/YOUR_USERNAME/orbly/actions/workflows/docker.yml/badge.svg)](https://github.com/YOUR_USERNAME/orbly/actions/workflows/docker.yml)
 # Orbly
 
 A small social network built with Symfony 8 — friend requests, a filtered feed, async processing, and Stripe subscriptions.

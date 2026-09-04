@@ -1,0 +1,120 @@
+# Your Phase 9 maintenance commands, finally on a schedule.
+#
+# CronJobs rather than Symfony Scheduler: no extra long-running process
+# to manage, and the schedule lives alongside everything else.
+
+# CronJobs are in the "batch" API group, alongside Jobs.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+    name: reconcile-subscriptions
+    namespace: orbly
+spec:
+    # Standard cron syntax: minute hour day-of-month month day-of-week.
+    # "0 3 * * *" = 03:00 every day. A quiet hour, and Stripe's API is
+    # less busy then.
+    schedule: "0 3 * * *"
+
+    # What to do if a run is still going when the next is due.
+    # Forbid = skip the new one. Two reconciliations at once would fight
+    # over the same rows.
+    concurrencyPolicy: Forbid
+
+    # How many finished pods to keep around. Their logs are only readable
+    # while the pod still exists, so keeping a few lets you check what
+    # happened overnight.
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 3
+
+    # jobTemplate: the Job this CronJob creates on each run.
+    jobTemplate:
+        spec:
+            # How many times to retry a failing Job before giving up.
+            backoffLimit: 2
+            template:
+                spec:
+                    # Never = if the container exits non-zero, do not restart it
+                    # in place. The Job controller creates a fresh pod instead.
+                    restartPolicy: Never
+                    containers:
+                        - name: reconcile
+                            # The APP image, not the worker image. The worker image
+                            # only differs by its default CMD, which we override here
+                            # anyway — but using the app image makes the intent clear.
+                          image: orbly:latest
+                          imagePullPolicy: IfNotPresent
+                            # command replaces the image's default CMD entirely.
+                          command:
+                              - php
+                              - bin/console
+                              - app:subscriptions:reconcile
+                          envFrom:
+                              - configMapRef:
+                                    name: orbly-config
+                              - secretRef:
+                                    name: orbly-secret
+
+# --- separates multiple objects in one YAML file.
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+    name: repair-counters
+    namespace: orbly
+spec:
+    # "0 */6 * * *" = every 6 hours, on the hour. Counter drift is rare,
+    # and catching it within hours is fine.
+    schedule: "0 */6 * * *"
+    concurrencyPolicy: Forbid
+    successfulJobsHistoryLimit: 3
+    jobTemplate:
+        spec:
+            template:
+                spec:
+                    restartPolicy: Never
+                    containers:
+                        - name: repair
+                          image: orbly:latest
+                          imagePullPolicy: IfNotPresent
+                          command:
+                              - php
+                              - bin/console
+                              - app:posts:repair-counters
+                          envFrom:
+                              - configMapRef:
+                                    name: orbly-config
+                              - secretRef:
+                                    name: orbly-secret
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+    name: prune-webhook-events
+    namespace: orbly
+spec:
+    # "0 4 * * 0" = 04:00 every Sunday. The table grows slowly, so weekly
+    # is plenty.
+    schedule: "0 4 * * 0"
+    concurrencyPolicy: Forbid
+    successfulJobsHistoryLimit: 2
+    jobTemplate:
+        spec:
+            template:
+                spec:
+                    restartPolicy: Never
+                    containers:
+                        - name: prune
+                          image: orbly:latest
+                          imagePullPolicy: IfNotPresent
+                          command:
+                              - php
+                              - bin/console
+                              - app:webhooks:prune
+                              # Arguments are separate list items, not appended to the
+                              # command string.
+                              - --days=90
+                          envFrom:
+                              - configMapRef:
+                                    name: orbly-config
+                              - secretRef:
+                                    name: orbly-secret

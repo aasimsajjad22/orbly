@@ -1,0 +1,142 @@
+# apiVersion: which Kubernetes API group and version defines this object.
+# Deployments live in the "apps" group, version v1.
+apiVersion: apps/v1
+
+# kind: what type of object this is. A Deployment means "keep N identical
+# pods running, and replace any that die".
+kind: Deployment
+
+# metadata: identity. Not behaviour — just naming and labelling.
+metadata:
+    # The Deployment's name. Used by kubectl, and as a prefix for the pods
+    # it creates (worker-7d9f8b-x2klm).
+    name: worker
+    # Which namespace it lives in. Without this it would go to "default".
+    namespace: orbly
+
+# spec: the DESIRED STATE. Kubernetes continuously works to make reality
+# match whatever is described here.
+spec:
+    # How many pods to keep running. Two, so messages process in parallel
+    # and one crashing does not halt the queue.
+    replicas: 2
+
+    # How this Deployment identifies WHICH pods belong to it.
+    selector:
+        # matchLabels: pods carrying ALL of these labels are mine.
+        matchLabels:
+            # Must match the pod template's labels below. A mismatch means the
+            # Deployment creates pods it then does not recognise, and it keeps
+            # creating more forever.
+            app: worker
+
+    # template: the blueprint for every pod this Deployment creates.
+    template:
+        metadata:
+            labels:
+                # The label the selector above looks for. This is the link
+                # between the Deployment and its pods.
+                app: worker
+
+        # spec (inside template): the pod's own desired state.
+        spec:
+            # The list of containers to run inside each pod.
+            containers:
+                # A name for this container, used when reading logs:
+                #   kubectl logs <pod> -c worker
+                - name: worker
+
+                    # Which image to run. This is the WORKER stage of your
+                    # Dockerfile — identical code to the web image, different
+                    # default command. Same artifact, two roles, so a deploy can
+                    # never leave workers running yesterday's code.
+                  image: orbly-worker:latest
+
+                    # IfNotPresent: use the image already in the node's store, do
+                    # not try to pull it. Essential here — the :latest tag would
+                    # otherwise default to Always, and Docker Hub has no "orbly".
+                  imagePullPolicy: IfNotPresent
+
+                    # envFrom: import EVERY key from these objects as environment
+                    # variables. Much shorter than listing twenty individual
+                    # valueFrom blocks.
+                  envFrom:
+                      # The ConfigMap: DATABASE_URL, MESSENGER_TRANSPORT_DSN,
+                      # MAILER_DSN, DEFAULT_URI, APP_ENV.
+                      - configMapRef:
+                            name: orbly-config
+                      # The Secret: APP_SECRET, Stripe keys, passwords.
+                      - secretRef:
+                            name: orbly-secret
+
+                    # Files to mount into this container's filesystem.
+                  volumeMounts:
+                      # Refers to the volume named "jwt-keys" defined at the bottom.
+                      - name: jwt-keys
+                          # Where it appears inside the container. Matches the
+                          # JWT_SECRET_KEY path in the ConfigMap.
+                        mountPath: /app/config/jwt
+                          # The worker only reads keys, never writes them.
+                        readOnly: true
+
+                    # NOTE: no readinessProbe here, deliberately.
+                    #
+                    # A readiness probe controls whether a pod receives TRAFFIC.
+                    # Nothing sends traffic to a worker — it pulls work from
+                    # RabbitMQ instead. So there is nothing to gate.
+                    #
+                    # And no livenessProbe: the worker is configured to exit
+                    # deliberately after 100 messages or 3600 seconds, and
+                    # Kubernetes restarts it. A liveness probe would duplicate a
+                    # mechanism that already works.
+
+                    # lifecycle: hooks that run at specific points in a container's
+                    # life.
+                  lifecycle:
+                      # preStop runs BEFORE Kubernetes sends SIGTERM.
+                      preStop:
+                          exec:
+                              # A brief pause so an in-flight message has a moment to
+                              # finish. Messenger only acknowledges a message after the
+                              # handler succeeds, so an interrupted one is redelivered —
+                              # but a half-applied side effect is still worth avoiding.
+                              command: ["sh", "-c", "sleep 5"]
+
+                    # resources: what this container needs, and its ceiling.
+                  resources:
+                      # requests: what the scheduler RESERVES when deciding which
+                      # node to place this pod on. The pod is guaranteed at least
+                      # this much.
+                      requests:
+                          # 192 mebibytes.
+                          memory: "192Mi"
+                          # 100 millicores = 0.1 of one CPU core.
+                          cpu: "100m"
+                      # limits: the hard ceiling. Exceed the memory limit and the
+                      # container is killed (OOMKilled). Exceed the CPU limit and
+                      # it is throttled, not killed.
+                      limits:
+                          memory: "384Mi"
+                          cpu: "500m"
+
+            # How long Kubernetes waits after sending SIGTERM before it sends
+            # SIGKILL. Messenger handles SIGTERM by finishing the current
+            # message and exiting cleanly, so this must be longer than your
+            # slowest handler. The default is 30 seconds.
+            terminationGracePeriodSeconds: 60
+
+            # volumes: the storage available to this pod, referenced by the
+            # volumeMounts above.
+            volumes:
+                # The name volumeMounts refers to.
+                - name: jwt-keys
+                    # Source the contents from a Secret. Each key in the Secret
+                    # becomes a file: private.pem and public.pem.
+                  secret:
+                      secretName: orbly-jwt
+
+# NOTE: there is no Service for the worker.
+#
+# A Service exists to route traffic to pods. Nothing routes traffic to a
+# worker — it connects OUT to RabbitMQ and pulls work. So it needs no
+# stable address, and nothing needs to find it.

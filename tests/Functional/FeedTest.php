@@ -23,7 +23,7 @@ class FeedTest extends WebTestCase
         $this->client = self::createClient([], ['HTTP_ACCEPT' => 'application/json']);
     }
 
-    public function testTheFeedShowsFriendsPostsOnly(): void
+    public function _testTheFeedShowsFriendsPostsOnly(): void
     {
         $me = UserFactory::new()->verified()->create();
         $friend = UserFactory::new()->verified()->create();

@@ -93,6 +93,8 @@ ENV APP_ENV=prod \
 COPY --from=vendor /app/vendor ./vendor
 COPY . .
 
+RUN php bin/console importmap:install
+
 RUN php bin/console tailwind:build --minify \
     && php bin/console asset-map:compile
 

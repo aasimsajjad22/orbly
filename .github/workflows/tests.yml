@@ -1,0 +1,155 @@
+# The name shown in GitHub's Actions tab.
+name: Tests
+
+# When to run this workflow.
+on:
+    # Every push to these branches.
+    push:
+        branches: [main]
+    # Every pull request targeting main — so a PR is checked BEFORE merge,
+    # which is the point.
+    pull_request:
+        branches: [main]
+
+jobs:
+    # A job id. Referenced by other jobs via "needs:".
+    tests:
+        # The display name in the UI.
+        name: PHPUnit
+        # The machine type GitHub provides. ubuntu-latest is free for public
+        # repositories and has Docker available.
+        runs-on: ubuntu-latest
+
+        # Kill a run stuck for more than 15 minutes rather than burning
+        # minutes on a hung process.
+        timeout-minutes: 15
+
+        # Service containers: Docker containers started alongside the job and
+        # reachable from it. This is how you get a real Postgres in CI rather
+        # than mocking the database.
+        services:
+            postgres:
+                # Same version as production. Testing against a different one
+                # defeats the purpose.
+                image: postgres:16-alpine
+                env:
+                    POSTGRES_USER: orbly
+                    POSTGRES_PASSWORD: orbly
+                    POSTGRES_DB: orbly_test
+                ports:
+                    # host:container. The job reaches it at 127.0.0.1:5432.
+                    - 5432:5432
+                # Wait for Postgres to accept connections before running steps.
+                # Without this, the first test hits a database that is still
+                # starting — the same race your migration Job hit in Kubernetes.
+                options: >-
+                    --health-cmd "pg_isready -U orbly"
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+
+        steps:
+            # Copies your repository onto the runner. Nothing works without it.
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            # Installs PHP with the extensions the app needs. This action is
+            # the standard for PHP projects.
+            - name: Set up PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  # Match production exactly.
+                  php-version: '8.4'
+                  # The same extensions the Dockerfile installs. amqp is here
+                  # even though tests use in-memory:// — the container still
+                  # builds the AMQP transport factory, which needs the extension.
+                  extensions: pdo_pgsql, intl, zip, amqp, opcache
+                  # Turn off Xdebug: it makes PHP several times slower and we are
+                  # not collecting coverage here.
+                  coverage: none
+
+            # Reads composer.lock and finds where Composer caches packages, so
+            # the next step knows what to save and restore.
+            - name: Get Composer cache directory
+              id: composer-cache
+              run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+            # Restores the cache from a previous run. Turns a two-minute
+            # install into about ten seconds.
+            - name: Cache Composer packages
+              uses: actions/cache@v4
+              with:
+                  # The directory found in the previous step.
+                  path: ${{ steps.composer-cache.outputs.dir }}
+                  # The cache key. Includes a hash of composer.lock, so changing
+                  # a dependency creates a new key and a fresh install.
+                  key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+                  # If the exact key misses, fall back to any older composer
+                  # cache — partially useful is better than nothing.
+                  restore-keys: ${{ runner.os }}-composer-
+
+            # Install everything INCLUDING dev dependencies — CI needs PHPUnit
+            # and Foundry, unlike the production image which uses --no-dev.
+            - name: Install dependencies
+              run: composer install --prefer-dist --no-progress --no-interaction
+
+            # Generate the JWT keypair. The test suite signs and verifies real
+            # tokens, so it needs real keys. These are throwaway, created fresh
+            # for each run and destroyed with the runner.
+            - name: Generate JWT keys
+              run: php bin/console lexik:jwt:generate-keypair --env=test --no-interaction
+              env:
+                  APP_ENV: test
+                  APP_SECRET: ci-only-not-a-real-secret
+
+            # Confirm the database is genuinely reachable before running tests.
+            # A clear failure here beats a confusing one inside PHPUnit.
+            - name: Wait for Postgres
+              run: |
+                  until pg_isready -h 127.0.0.1 -p 5432 -U orbly; do
+                    echo "waiting for postgres..."
+                    sleep 1
+                  done
+
+            # Sanity check: does the container compile at all? Catches a broken
+            # service definition before the test suite runs and produces a
+            # hundred confusing errors.
+            - name: Lint the container
+              run: php bin/console lint:container --env=test
+              env:
+                  APP_ENV: test
+                  APP_SECRET: ci-only-not-a-real-secret
+                  DATABASE_URL: postgresql://orbly:orbly@127.0.0.1:5432/orbly_test?serverVersion=16&charset=utf8
+
+            # Catch YAML syntax errors in config/ separately, with a clearer
+            # message than a container build failure.
+            - name: Lint YAML and Twig
+              run: |
+                  php bin/console lint:yaml config --parse-tags
+                  php bin/console lint:twig templates
+              env:
+                  APP_ENV: test
+                  APP_SECRET: ci-only-not-a-real-secret
+
+            # The actual test suite. Foundry resets the schema itself, so no
+            # separate migration step is needed.
+            - name: Run tests
+              run: php bin/phpunit
+              env:
+                  APP_ENV: test
+                  APP_DEBUG: 0
+                  APP_SECRET: ci-only-not-a-real-secret
+                  DATABASE_URL: postgresql://orbly:orbly@127.0.0.1:5432/orbly_test?serverVersion=16&charset=utf8
+                  # in-memory, so CI needs no RabbitMQ.
+                  MESSENGER_TRANSPORT_DSN: in-memory://
+                  # null, so CI needs no mail server — but the collector still
+                  # records messages, which is what assertEmailCount() reads.
+                  MAILER_DSN: null://null
+                  # Fake values. The real gateways are swapped for test doubles
+                  # by services_test.yaml, so these are never used to call
+                  # anything — they only need to exist so the container builds.
+                  STRIPE_SECRET_KEY: sk_test_ci
+                  STRIPE_WEBHOOK_SECRET: whsec_ci
+                  STRIPE_PRO_PRICE_ID: price_ci
+                  STRIPE_API_VERSION: 2025-03-31.basil
+                  GOOGLE_CLIENT_ID: ci.apps.googleusercontent.com
